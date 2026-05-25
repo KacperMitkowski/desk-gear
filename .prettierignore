@@ -11,6 +11,13 @@ node_modules/
 *.lock
 package-lock.json
 
+# Test artifacts
+/coverage
+/test-results
+/playwright-report
+/playwright/.cache
+/blob-report
+
 # Misc
 .DS_Store
 .env*

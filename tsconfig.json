@@ -5,6 +5,7 @@
     "noImplicitOverride": true,
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "allowJs": true,
     "skipLibCheck": true,
     "noEmit": true,
