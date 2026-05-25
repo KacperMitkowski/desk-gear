@@ -1,6 +1,5 @@
 name: "✨ Feature Request"
 description: "[feat] Zaproponuj nową funkcję lub zmianę istniejącej funkcji"
-type: "Feature"
 body:
   - type: markdown
     attributes:
