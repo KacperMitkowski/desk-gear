@@ -12,12 +12,13 @@
 > Ten plik **będzie się zmieniał w czasie** — celowo, świadomie i często. Architektura ewoluuje wraz z kodem, decyzje weryfikuje się dopiero w trakcie implementacji, a "ostateczne" wybory z fazy 0 mogą okazać się złe w fazie 2. To jest **dokumentacja stanu wiedzy na dziś**, nie kontrakt na całą inwestycję.
 >
 > **Co to oznacza w praktyce:**
+>
 > - Każda istotna zmiana → commit do tego pliku w tym samym PR co zmiana w kodzie. Nie ma "dopiszę później".
 > - ADR-y (sekcja 17) są **append-only** — gdy decyzja się zmienia, nie kasujemy starej, dopisujemy nową ze statusem "Superseded by ADR-XXX".
 > - Sekcje "Otwarte pytania i ryzyka" (sekcja 18) oraz "Plan faz" (sekcja 16) zmieniają się najczęściej — to jest normalne i pożądane.
 > - Jeżeli przy review PR widzisz że kod robi coś inaczej niż ten dokument — to **jeden z dwóch jest do poprawy**, i bardzo często to dokument, nie kod.
 >
-> *"Decyzje architektoniczne są tymczasowe. Ważne, żeby były świadome."*
+> _"Decyzje architektoniczne są tymczasowe. Ważne, żeby były świadome."_
 
 ---
 
@@ -55,19 +56,19 @@
 - **Type safety end-to-end** — od schematu Zod, przez Server Action, po RHF formularz. Żadnego `any`, żadnego `as unknown as X`.
 - **Testowalność > sprytność** — kod, który trudno przetestować, prawdopodobnie ma złą architekturę.
 
-### 1.2. Czego *nie* robimy w fazie 1
+### 1.2. Czego _nie_ robimy w fazie 1
 
-| Świadomie odkładamy | Powód |
-|---------------------|-------|
-| OAuth (Google/Apple) | Brak business value w fazie 1, dodaje powierzchnię błędów. Mockup ignorujemy. |
-| Stripe (real payments) | Faza 2 — najpierw checkout flow + fake "PAID" status. |
-| i18n EN | Faza 2 — najpierw polski, ale **kod od początku gotowy na i18n** (klucze, pliki per feature). |
-| Sentry / observability | Faza 3 — najpierw stabilny core. |
-| Storybook | Faza 3 — w fazie 1 dokumentacja komponentów = testy + Tailwind classes inline. |
-| Multi-environment (staging/prod) | Faza 2 — w fazie 1 jedno środowisko na Vercel. |
-| Soft deletes | Hard delete + audit log dopiero gdy biznes tego wymaga. |
-| Caching (Redis) | Next.js cache + ISR wystarczy. Redis dopiero przy realnym ruchu. |
-| Neon preview branches per PR | Faza 2 — sekcja 15. |
+| Świadomie odkładamy              | Powód                                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------------------- |
+| OAuth (Google/Apple)             | Brak business value w fazie 1, dodaje powierzchnię błędów. Mockup ignorujemy.                 |
+| Stripe (real payments)           | Faza 2 — najpierw checkout flow + fake "PAID" status.                                         |
+| i18n EN                          | Faza 2 — najpierw polski, ale **kod od początku gotowy na i18n** (klucze, pliki per feature). |
+| Sentry / observability           | Faza 3 — najpierw stabilny core.                                                              |
+| Storybook                        | Faza 3 — w fazie 1 dokumentacja komponentów = testy + Tailwind classes inline.                |
+| Multi-environment (staging/prod) | Faza 2 — w fazie 1 jedno środowisko na Vercel.                                                |
+| Soft deletes                     | Hard delete + audit log dopiero gdy biznes tego wymaga.                                       |
+| Caching (Redis)                  | Next.js cache + ISR wystarczy. Redis dopiero przy realnym ruchu.                              |
+| Neon preview branches per PR     | Faza 2 — sekcja 15.                                                                           |
 
 ### 1.3. Rozdzielenie reads i writes — RSC dla reads, Server Actions dla mutacji
 
@@ -77,11 +78,13 @@ Stosujemy **standardową praktykę Next.js App Router**:
 - **Writes** (dodanie do koszyka, składanie zamówienia, CRUD produktów) → **Server Actions** (`'use server'`) z pełnym pipeline'em (auth check → Zod walidacja → service → `ActionResult<T>` → `revalidatePath`).
 
 **Dlaczego ten podział**:
+
 - RSC z bezpośrednim wywołaniem service'u dostaje natywne cache'owanie Next.js (`fetch` cache, ISR, route cache), prefetch, semantykę GET, back/forward cache.
 - Server Actions to POST-y, świetne do mutacji (idempotentność, side-effecty, `revalidatePath`) ale słabe do reads (brak cache, brak prefetch, większy narzut serializacji).
 - Frontend ma dwa proste wzorce: `await service.findMany()` w `page.tsx` vs `await someAction(data)` w komponencie.
 
 **Konsekwencje dla obsługi błędów**:
+
 - Mutacje: błąd → `ActionResult<T>` → `setError` w RHF lub toast (sekcja 6).
 - Reads: błąd → `throw` w RSC → `error.tsx` (Next.js Error Boundary). Brak `ActionResult` na ścieżce read.
 
@@ -91,55 +94,55 @@ Stosujemy **standardową praktykę Next.js App Router**:
 
 ### 2.1. Core
 
-| Warstwa | Technologia | Wersja docelowa | Uzasadnienie |
-|---------|-------------|-----------------|--------------|
-| Framework | Next.js (App Router, Turbopack) | **16.2.x** | Adapter API stable, Server Fast Refresh, AI dev tools, RSC + Server Actions |
-| Runtime React | React | **19.x** | Wymagane przez Next 16, dostępne `useActionState`, `useOptimistic`, `use()` |
-| Język | TypeScript | **5.9.x** *(minimum 5.5 dla Zod 4)* | strict mode, no implicit any |
-| Runtime | Node.js | **22 LTS** | Vercel default, Next 16 wymaga ≥ 20 |
-| Package manager | npm | 10+ | wbudowany w Node, najprostszy setup, zero dodatkowych narzędzi w CI |
-| ORM | Prisma | **7.x** | Rust-free client (Prisma 7), znacznie lepsza wydajność, prisma.config.ts |
-| Baza danych | PostgreSQL (Neon) | **17** | serverless, scale to zero, branching dla testów |
-| Auth | **NextAuth (Auth.js) v5** | 5.x (beta, pinned) | Wybór edukacyjny — znany pattern z tutoriali. JWT sessions (stateless, edge-ready). 80+ OAuth providers OOTB pod fazę 3. Świadome trade-offy w sekcji 7.5 i ADR-001 |
-| Walidacja | Zod | **4.4.x** | 14× szybsze parsowanie niż v3, 57% mniejszy core, `z.config({ customError })` API, `z.discriminatedUnion` |
-| Formularze | React Hook Form | **7.x** | `useController`, `onTouched`, integracja Zod przez resolver (`@hookform/resolvers/zod`) |
-| UI primitives | shadcn/ui + Radix | latest | nieinstalowane jako lib — kopiowane, modyfikowalne |
-| Styling | Tailwind CSS | **4.x** | utility-first, CSS-first config, dobra DX |
-| Płatności (faza 2) | Stripe | latest | de facto standard |
+| Warstwa            | Technologia                     | Wersja docelowa                     | Uzasadnienie                                                                                                                                                        |
+| ------------------ | ------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework          | Next.js (App Router, Turbopack) | **16.2.x**                          | Adapter API stable, Server Fast Refresh, AI dev tools, RSC + Server Actions                                                                                         |
+| Runtime React      | React                           | **19.x**                            | Wymagane przez Next 16, dostępne `useActionState`, `useOptimistic`, `use()`                                                                                         |
+| Język              | TypeScript                      | **5.9.x** _(minimum 5.5 dla Zod 4)_ | strict mode, no implicit any                                                                                                                                        |
+| Runtime            | Node.js                         | **22 LTS**                          | Vercel default, Next 16 wymaga ≥ 20                                                                                                                                 |
+| Package manager    | npm                             | 10+                                 | wbudowany w Node, najprostszy setup, zero dodatkowych narzędzi w CI                                                                                                 |
+| ORM                | Prisma                          | **7.x**                             | Rust-free client (Prisma 7), znacznie lepsza wydajność, prisma.config.ts                                                                                            |
+| Baza danych        | PostgreSQL (Neon)               | **17**                              | serverless, scale to zero, branching dla testów                                                                                                                     |
+| Auth               | **NextAuth (Auth.js) v5**       | 5.x (beta, pinned)                  | Wybór edukacyjny — znany pattern z tutoriali. JWT sessions (stateless, edge-ready). 80+ OAuth providers OOTB pod fazę 3. Świadome trade-offy w sekcji 7.5 i ADR-001 |
+| Walidacja          | Zod                             | **4.4.x**                           | 14× szybsze parsowanie niż v3, 57% mniejszy core, `z.config({ customError })` API, `z.discriminatedUnion`                                                           |
+| Formularze         | React Hook Form                 | **7.x**                             | `useController`, `onTouched`, integracja Zod przez resolver (`@hookform/resolvers/zod`)                                                                             |
+| UI primitives      | shadcn/ui + Radix               | latest                              | nieinstalowane jako lib — kopiowane, modyfikowalne                                                                                                                  |
+| Styling            | Tailwind CSS                    | **4.x**                             | utility-first, CSS-first config, dobra DX                                                                                                                           |
+| Płatności (faza 2) | Stripe                          | latest                              | de facto standard                                                                                                                                                   |
 
 > **Notatka o wersjach**: powyższe to **wersje docelowe na dzień startu projektu (maj 2026)**. Jak zwykle przy każdym `npm install` warto sprawdzić aktualny stan — `npm view <pkg> version` lub strona projektu. Wersje będą się starzeć; zasada: trzymamy się dwóch ostatnich major-ów aktywnie wspieranych.
 
 ### 2.2. Wsparcie
 
-| Cel | Pakiet | Decyzja |
-|-----|--------|---------|
-| Daty | **`date-fns`** v4 | Tree-shakable, immutable, lepsze typy niż dayjs |
-| Seedy | **`@faker-js/faker`** v9 | Standard, locale `pl` dostępne |
-| Obrazki | **`next/image` + UploadThing** *(faza 1: lokalne pliki w `public/products/`)* | UploadThing tylko gdy realnie potrzebujemy uploadu w admin. Faza 1: lokalne pliki commitowane do repo, ścieżki w seed. |
-| HTTP w testach | **MSW** v2 | Mock Service Worker — używałem już w TanStack Query learning. Tu używamy do mockowania zewnętrznych API (Resend, w fazie 2 Stripe) w testach integration i e2e. |
-| Toast | **sonner** (shadcn) | Lightweight, dobre API |
-| Email transactional | **Resend** | Faza 1 (reset hasła), free tier 3000/mies. wystarczy |
-| Env validation | **`@t3-oss/env-nextjs`** + Zod | Walidacja zmiennych środowiskowych na starcie aplikacji |
+| Cel                 | Pakiet                                                                        | Decyzja                                                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Daty                | **`date-fns`** v4                                                             | Tree-shakable, immutable, lepsze typy niż dayjs                                                                                                                 |
+| Seedy               | **`@faker-js/faker`** v9                                                      | Standard, locale `pl` dostępne                                                                                                                                  |
+| Obrazki             | **`next/image` + UploadThing** _(faza 1: lokalne pliki w `public/products/`)_ | UploadThing tylko gdy realnie potrzebujemy uploadu w admin. Faza 1: lokalne pliki commitowane do repo, ścieżki w seed.                                          |
+| HTTP w testach      | **MSW** v2                                                                    | Mock Service Worker — używałem już w TanStack Query learning. Tu używamy do mockowania zewnętrznych API (Resend, w fazie 2 Stripe) w testach integration i e2e. |
+| Toast               | **sonner** (shadcn)                                                           | Lightweight, dobre API                                                                                                                                          |
+| Email transactional | **Resend**                                                                    | Faza 1 (reset hasła), free tier 3000/mies. wystarczy                                                                                                            |
+| Env validation      | **`@t3-oss/env-nextjs`** + Zod                                                | Walidacja zmiennych środowiskowych na starcie aplikacji                                                                                                         |
 
 ### 2.3. Testowanie
 
-| Warstwa | Narzędzie |
-|---------|-----------|
-| Unit | Vitest 3.x |
-| Component | Vitest + Testing Library |
+| Warstwa                           | Narzędzie                                                       |
+| --------------------------------- | --------------------------------------------------------------- |
+| Unit                              | Vitest 3.x                                                      |
+| Component                         | Vitest + Testing Library                                        |
 | Integration (Server Actions + DB) | Vitest + Prisma + testowa DB (Neon branch lub lokalny Postgres) |
-| E2E | Playwright 1.x |
-| HTTP mocking (testy) | MSW v2 |
+| E2E                               | Playwright 1.x                                                  |
+| HTTP mocking (testy)              | MSW v2                                                          |
 
 ### 2.4. Tooling
 
-| Cel | Narzędzie |
-|-----|-----------|
-| Linter | ESLint 9 (flat config) + `@typescript-eslint` |
-| Format | Prettier + `prettier-plugin-tailwindcss` |
-| Hooks Git | Husky + lint-staged |
-| Commit msg | commitlint (Conventional Commits) |
-| Bundler analyzer | `@next/bundle-analyzer` (na żądanie) |
+| Cel              | Narzędzie                                     |
+| ---------------- | --------------------------------------------- |
+| Linter           | ESLint 9 (flat config) + `@typescript-eslint` |
+| Format           | Prettier + `prettier-plugin-tailwindcss`      |
+| Hooks Git        | Husky + lint-staged                           |
+| Commit msg       | commitlint (Conventional Commits)             |
+| Bundler analyzer | `@next/bundle-analyzer` (na żądanie)          |
 
 ---
 
@@ -198,34 +201,32 @@ Każda Server Action ma identyczną strukturę. To jest **kontrakt** — łatwie
 
 ```typescript
 // src/features/products/actions/create-product.action.ts
-'use server';
+"use server"
 
-import { revalidatePath } from 'next/cache';
-import { requireRole } from '@/lib/auth/require-role';
-import { createProductSchema } from '@/features/products/schemas';
-import { productService } from '@/features/products/services/product.service';
-import { toActionResult, type ActionResult } from '@/lib/actions/action-result';
-import type { Product } from '@/features/products/types';
+import { revalidatePath } from "next/cache"
+import { requireRole } from "@/lib/auth/require-role"
+import { createProductSchema } from "@/features/products/schemas"
+import { productService } from "@/features/products/services/product.service"
+import { toActionResult, type ActionResult } from "@/lib/actions/action-result"
+import type { Product } from "@/features/products/types"
 
-export async function createProductAction(
-  input: unknown,
-): Promise<ActionResult<Product>> {
+export async function createProductAction(input: unknown): Promise<ActionResult<Product>> {
   return toActionResult(async () => {
     // 1. Auth
-    await requireRole(['ADMIN']);
+    await requireRole(["ADMIN"])
 
     // 2. Walidacja (rzuca ZodError jeśli źle)
-    const data = createProductSchema.parse(input);
+    const data = createProductSchema.parse(input)
 
     // 3. Service (logika biznesowa, może rzucić AppError)
-    const product = await productService.create(data);
+    const product = await productService.create(data)
 
     // 4. Invalidate cache
-    revalidatePath('/admin/products');
-    revalidatePath('/shop');
+    revalidatePath("/admin/products")
+    revalidatePath("/shop")
 
-    return product;
-  });
+    return product
+  })
 }
 ```
 
@@ -271,23 +272,23 @@ Konwencja: service rzuca lub wywołuje `notFound()` w odpowiednich momentach. RS
 
 ```typescript
 // features/products/services/product.service.ts
-import { notFound } from 'next/navigation';
+import { notFound } from "next/navigation"
 
 export const productService = {
   // Variant "musi istnieć" — używamy w PDP i innych "obowiązkowych" miejscach
   async getBySlug(slug: string): Promise<Product> {
-    const product = await productRepository.findBySlug(slug);
+    const product = await productRepository.findBySlug(slug)
     if (!product || !product.isActive) {
-      notFound(); // ← Next.js łapie i renderuje not-found.tsx
+      notFound() // ← Next.js łapie i renderuje not-found.tsx
     }
-    return product;
+    return product
   },
 
   // Reszta operacji — bez fallbacku, rzucają normalne errory na DB outage itp.
   async findMany(filters: ListProductsFilters): Promise<{ items: Product[]; total: number }> {
-    return productRepository.findMany(filters);
+    return productRepository.findMany(filters)
   },
-};
+}
 ```
 
 RSC są wtedy minimalne:
@@ -307,11 +308,11 @@ export default async function ProductDetailPage({
 
 **Co dzieje się gdy coś idzie nie tak**:
 
-| Sytuacja | Kto obsługuje | Co user widzi |
-|----------|---------------|---------------|
-| Produkt nie istnieje / nieaktywny | `notFound()` w service | `not-found.tsx` (segment-level lub globalny) |
-| DB outage, timeout, nieoczekiwany błąd | `throw` propaguje do Next.js | `error.tsx` (segment-level lub globalny) z przyciskiem Retry |
-| `ZodError` na parse'owaniu searchParams | `throw` propaguje | `error.tsx` (rzadko — to znaczy że ktoś manipulował URL) |
+| Sytuacja                                | Kto obsługuje                | Co user widzi                                                |
+| --------------------------------------- | ---------------------------- | ------------------------------------------------------------ |
+| Produkt nie istnieje / nieaktywny       | `notFound()` w service       | `not-found.tsx` (segment-level lub globalny)                 |
+| DB outage, timeout, nieoczekiwany błąd  | `throw` propaguje do Next.js | `error.tsx` (segment-level lub globalny) z przyciskiem Retry |
+| `ZodError` na parse'owaniu searchParams | `throw` propaguje            | `error.tsx` (rzadko — to znaczy że ktoś manipulował URL)     |
 
 **Konwencja nazewnicza service'ów** (zasada YAGNI — dodajemy tylko te warianty których potrzebujemy):
 
@@ -343,14 +344,16 @@ W fazie 1 implementujemy wyłącznie `get*` per encja. `tryFind*` dodajemy **dop
 **Testowanie service'u który wywołuje `notFound()`**: w Vitest mockujemy `next/navigation`:
 
 ```typescript
-import { vi } from 'vitest';
-vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => { throw new Error('NEXT_NOT_FOUND'); }),
-}));
+import { vi } from "vitest"
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(() => {
+    throw new Error("NEXT_NOT_FOUND")
+  }),
+}))
 
-it('throws NEXT_NOT_FOUND when product does not exist', async () => {
-  await expect(productService.getBySlug('nonexistent')).rejects.toThrow('NEXT_NOT_FOUND');
-});
+it("throws NEXT_NOT_FOUND when product does not exist", async () => {
+  await expect(productService.getBySlug("nonexistent")).rejects.toThrow("NEXT_NOT_FOUND")
+})
 ```
 
 ### 3.4. Wyjątek: filtrowanie w listach admina
@@ -652,15 +655,15 @@ erDiagram
 
 ### 5.3. Kluczowe decyzje schematu
 
-| Decyzja | Uzasadnienie |
-|---------|--------------|
-| **Decimal dla cen** — `priceGross Decimal @db.Decimal(10, 2)` | Precyzja arytmetyki bez floating point. Zakres 0.01–99999999.99 PLN — w nadmiarze. Patrz sekcja 5.6 (Decimal w DB, string w API). |
-| **`attributes` jako JSONB** (nie JSON) | Postgres ma dwa typy: `json` (tekst bez parsowania) i `jsonb` (binarny, indexowalny, deduplikowany). Używamy JSONB bo: szybsze odczyty, możliwość GIN index, mniejsze rozmiary. W Prisma: `attributes Json @db.JsonB`. |
-| **OrderItem przechowuje snapshot** | `unitPrice`, `productNameSnapshot`, `variantAttributesSnapshot` (JSONB) — historia zamówień musi być immutable nawet po zmianie ceny/nazwy/atrybutów. |
-| **Stock per variant**, nie per product | Bo "TKL Brown czarny" ma inny stan niż "TKL Red biały". |
-| **CHECK constraints w DB** | Patrz sekcja 5.4 — `stockQuantity >= 0`, `quantity > 0`, `priceGross > 0`. Aplikacja waliduje to w Zod, ale DB jest **ostatnią linią obrony**. |
-| **Soft delete tylko gdy potrzebny** | W fazie 1 hard delete + cascade. Dodamy `deletedAt` gdy biznes będzie wymagał audit log. |
-| **Enum statusów w bazie**: `OrderStatus`, `UserRole` | Prisma generuje typy TS automatycznie + Postgres enforce'uje na poziomie DB. |
+| Decyzja                                                       | Uzasadnienie                                                                                                                                                                                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Decimal dla cen** — `priceGross Decimal @db.Decimal(10, 2)` | Precyzja arytmetyki bez floating point. Zakres 0.01–99999999.99 PLN — w nadmiarze. Patrz sekcja 5.6 (Decimal w DB, string w API).                                                                                      |
+| **`attributes` jako JSONB** (nie JSON)                        | Postgres ma dwa typy: `json` (tekst bez parsowania) i `jsonb` (binarny, indexowalny, deduplikowany). Używamy JSONB bo: szybsze odczyty, możliwość GIN index, mniejsze rozmiary. W Prisma: `attributes Json @db.JsonB`. |
+| **OrderItem przechowuje snapshot**                            | `unitPrice`, `productNameSnapshot`, `variantAttributesSnapshot` (JSONB) — historia zamówień musi być immutable nawet po zmianie ceny/nazwy/atrybutów.                                                                  |
+| **Stock per variant**, nie per product                        | Bo "TKL Brown czarny" ma inny stan niż "TKL Red biały".                                                                                                                                                                |
+| **CHECK constraints w DB**                                    | Patrz sekcja 5.4 — `stockQuantity >= 0`, `quantity > 0`, `priceGross > 0`. Aplikacja waliduje to w Zod, ale DB jest **ostatnią linią obrony**.                                                                         |
+| **Soft delete tylko gdy potrzebny**                           | W fazie 1 hard delete + cascade. Dodamy `deletedAt` gdy biznes będzie wymagał audit log.                                                                                                                               |
+| **Enum statusów w bazie**: `OrderStatus`, `UserRole`          | Prisma generuje typy TS automatycznie + Postgres enforce'uje na poziomie DB.                                                                                                                                           |
 
 ### 5.4. Constraints i walidacja na poziomie bazy
 
@@ -879,6 +882,7 @@ model Order {
 **Decyzja**: wszystkie ceny są `Decimal(10, 2)` w bazie i **string** (`"249.00"`) w API/Server Actions/Zod schemach. Frontend wyświetla przez formatter. Nie konwertujemy na `number` poza warstwą prezentacji.
 
 **Dlaczego nie number na froncie**:
+
 - `Number("249.00")` → `249` (gubimy zerowe grosze przy serializacji)
 - Floating point: `0.1 + 0.2 !== 0.3`
 - Łatwo o pomyłkę przy sumowaniu w koszyku
@@ -887,12 +891,12 @@ model Order {
 
 ```typescript
 // src/lib/money/types.ts
-export type Money = string & { readonly __brand: 'Money' };
+export type Money = string & { readonly __brand: "Money" }
 
 export function toMoney(value: string | number | Prisma.Decimal): Money {
-  if (typeof value === 'string') return value as Money;
-  if (typeof value === 'number') return value.toFixed(2) as Money;
-  return value.toFixed(2) as Money; // Prisma.Decimal
+  if (typeof value === "string") return value as Money
+  if (typeof value === "number") return value.toFixed(2) as Money
+  return value.toFixed(2) as Money // Prisma.Decimal
 }
 ```
 
@@ -900,15 +904,15 @@ export function toMoney(value: string | number | Prisma.Decimal): Money {
 
 ```typescript
 // src/lib/money/schema.ts
-import * as z from 'zod';
+import * as z from "zod"
 
 export const moneySchema = z
   .string()
-  .regex(/^\d+(\.\d{1,2})?$/, { error: 'invalid_money_format' })
+  .regex(/^\d+(\.\d{1,2})?$/, { error: "invalid_money_format" })
   .transform((v) => Number(v).toFixed(2))
-  .refine((v) => Number(v) >= 0, { error: 'too_small' });
+  .refine((v) => Number(v) >= 0, { error: "too_small" })
 
-export type MoneyInput = z.infer<typeof moneySchema>;
+export type MoneyInput = z.infer<typeof moneySchema>
 ```
 
 **Serializacja Server Action → klient**:
@@ -920,7 +924,7 @@ function toProductVariantDto(variant: PrismaProductVariant): ProductVariantDto {
   return {
     ...variant,
     priceGross: variant.priceGross.toFixed(2), // Decimal → "249.00"
-  };
+  }
 }
 ```
 
@@ -928,9 +932,8 @@ function toProductVariantDto(variant: PrismaProductVariant): ProductVariantDto {
 
 ```typescript
 // src/lib/money/format.ts
-export function formatMoney(value: Money, locale = 'pl-PL', currency = 'PLN'): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency })
-    .format(Number(value));
+export function formatMoney(value: Money, locale = "pl-PL", currency = "PLN"): string {
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(value))
 }
 // formatMoney("249.00") → "249,00 zł"
 ```
@@ -964,6 +967,7 @@ async function main() {
 Seed musi być **idempotentny** — `upsert` zamiast `create` wszędzie. Re-runowalny bez `prisma migrate reset`.
 
 ---
+
 ## 6. Walidacja i obsługa błędów
 
 To jest **najbardziej krytyczna sekcja** dla utrzymania spójności w całym projekcie. Strategia: **Zod jako single source of truth** dla błędów walidacyjnych, **AppError** dla business errors, **trójwarstwowa kaskada nadpisywania komunikatów** (sekcja 6.7).
@@ -980,51 +984,51 @@ Ponieważ różne kategorie mają różne atrybuty wariantu, używamy **`z.discr
 
 ```typescript
 // features/products/schemas.ts
-import * as z from 'zod';
-import { moneySchema } from '@/lib/money/schema';
+import * as z from "zod"
+import { moneySchema } from "@/lib/money/schema"
 
 // Per-category variant attribute schemas
 const keyboardAttrs = z.object({
-  categoryType: z.literal('keyboard'),
-  layout: z.enum(['60', '65', '75', 'TKL', 'Full']),
-  switch: z.enum(['Brown', 'Blue', 'Red', 'Silent']),
+  categoryType: z.literal("keyboard"),
+  layout: z.enum(["60", "65", "75", "TKL", "Full"]),
+  switch: z.enum(["Brown", "Blue", "Red", "Silent"]),
   color: z.string().min(1),
-});
+})
 
 const cableAttrs = z.object({
-  categoryType: z.literal('cable'),
-  length: z.enum(['0.5m', '1m', '1.5m', '2m', '3m', '5m']),
+  categoryType: z.literal("cable"),
+  length: z.enum(["0.5m", "1m", "1.5m", "2m", "3m", "5m"]),
   color: z.string().min(1),
   standard: z.string().min(1),
-});
+})
 
 const apparelAttrs = z.object({
-  categoryType: z.literal('apparel'),
-  size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
+  categoryType: z.literal("apparel"),
+  size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]),
   color: z.string().min(1),
-});
+})
 
 const monitorAttrs = z.object({
-  categoryType: z.literal('monitor'),
+  categoryType: z.literal("monitor"),
   diagonal: z.string().regex(/^\d+(\.\d+)?$/),
-  refreshRate: z.enum(['60Hz', '75Hz', '144Hz', '165Hz', '240Hz']),
-  panel: z.enum(['IPS', 'VA', 'TN', 'OLED']),
-});
+  refreshRate: z.enum(["60Hz", "75Hz", "144Hz", "165Hz", "240Hz"]),
+  panel: z.enum(["IPS", "VA", "TN", "OLED"]),
+})
 
 const chairAttrs = z.object({
-  categoryType: z.literal('chair'),
+  categoryType: z.literal("chair"),
   color: z.string().min(1),
-  armrests: z.enum(['fixed', '2D', '3D', '4D']),
-});
+  armrests: z.enum(["fixed", "2D", "3D", "4D"]),
+})
 
-const variantAttributesSchema = z.discriminatedUnion('categoryType', [
+const variantAttributesSchema = z.discriminatedUnion("categoryType", [
   keyboardAttrs,
   cableAttrs,
   apparelAttrs,
   monitorAttrs,
   chairAttrs,
   // dorzucamy kolejne wraz z dodawaniem kategorii
-]);
+])
 
 export const createProductSchema = z.object({
   name: z.string().min(3).max(120),
@@ -1032,17 +1036,19 @@ export const createProductSchema = z.object({
   description: z.string().min(20).max(5000),
   brand: z.string().max(60).optional(),
   categoryId: z.string().cuid(),
-  variants: z.array(
-    z.object({
-      sku: z.string().min(3),
-      attributes: variantAttributesSchema,
-      priceGross: moneySchema,
-      stockQuantity: z.number().int().nonnegative(),
-    })
-  ).min(1),
-});
+  variants: z
+    .array(
+      z.object({
+        sku: z.string().min(3),
+        attributes: variantAttributesSchema,
+        priceGross: moneySchema,
+        stockQuantity: z.number().int().nonnegative(),
+      }),
+    )
+    .min(1),
+})
 
-export type CreateProductInput = z.infer<typeof createProductSchema>;
+export type CreateProductInput = z.infer<typeof createProductSchema>
 ```
 
 ### 6.2. Globalny Zod error map
@@ -1053,31 +1059,31 @@ Zod 4 wprowadził nowe API `z.config({ customError })`:
 
 ```typescript
 // lib/validation/zod-error-map.ts
-import * as z from 'zod';
+import * as z from "zod"
 
 z.config({
   customError: (issue) => {
     return {
       message: JSON.stringify({
-        code: issue.code,            // "too_small", "invalid_type", ...
+        code: issue.code, // "too_small", "invalid_type", ...
         params: extractParams(issue),
       }),
-    };
+    }
   },
-});
+})
 
 function extractParams(issue: z.core.$ZodIssue): Record<string, unknown> {
   switch (issue.code) {
-    case 'too_small':
-      return { minimum: issue.minimum, inclusive: issue.inclusive };
-    case 'too_big':
-      return { maximum: issue.maximum, inclusive: issue.inclusive };
-    case 'invalid_type':
-      return { expected: issue.expected, received: issue.received };
-    case 'invalid_format':
-      return { format: issue.format };
+    case "too_small":
+      return { minimum: issue.minimum, inclusive: issue.inclusive }
+    case "too_big":
+      return { maximum: issue.maximum, inclusive: issue.inclusive }
+    case "invalid_type":
+      return { expected: issue.expected, received: issue.received }
+    case "invalid_format":
+      return { format: issue.format }
     default:
-      return {};
+      return {}
   }
 }
 ```
@@ -1107,31 +1113,30 @@ export class AppError extends Error {
     public readonly params: Record<string, unknown> = {},
     public readonly field?: string,
   ) {
-    super(code);
-    this.name = 'AppError';
+    super(code)
+    this.name = "AppError"
   }
 }
 
 export type AppErrorCode =
-  | 'EMAIL_ALREADY_EXISTS'
-  | 'INVALID_CREDENTIALS'
-  | 'INSUFFICIENT_STOCK'
-  | 'CART_EMPTY'
-  | 'ORDER_CANNOT_BE_CANCELLED'
-  | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
-  | 'INTERNAL_ERROR';
+  | "EMAIL_ALREADY_EXISTS"
+  | "INVALID_CREDENTIALS"
+  | "INSUFFICIENT_STOCK"
+  | "CART_EMPTY"
+  | "ORDER_CANNOT_BE_CANCELLED"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "INTERNAL_ERROR"
 
 // Uwaga: "rekord nie istnieje" NIE jest na tej liście.
 // Dla tego przypadku service wywołuje notFound() z next/navigation (sekcja 3.3).
 // AppError zarezerwowany dla błędów biznesowych (stock, auth, walidacja krzyżowa).
 
 export const AppErrors = {
-  emailExists: (email: string) =>
-    new AppError('EMAIL_ALREADY_EXISTS', { email }, 'email'),
+  emailExists: (email: string) => new AppError("EMAIL_ALREADY_EXISTS", { email }, "email"),
   insufficientStock: (available: number, requested: number) =>
-    new AppError('INSUFFICIENT_STOCK', { available, requested }),
-};
+    new AppError("INSUFFICIENT_STOCK", { available, requested }),
+}
 ```
 
 ### 6.4. ActionResult — jednolita umowa zwrotna
@@ -1139,50 +1144,48 @@ export const AppErrors = {
 ```typescript
 // lib/actions/action-result.ts
 export type ActionResult<T> =
-  | { status: 'success'; data: T }
-  | { status: 'error'; error: ApiErrorResponse };
+  | { status: "success"; data: T }
+  | { status: "error"; error: ApiErrorResponse }
 
 export type ApiErrorResponse = {
-  type: 'validation' | 'business' | 'auth' | 'server';
-  message: string;
-  fieldErrors?: FieldError[];
-  traceId?: string;
-};
+  type: "validation" | "business" | "auth" | "server"
+  message: string
+  fieldErrors?: FieldError[]
+  traceId?: string
+}
 
 export type FieldError = {
-  code: string;
-  message: string;
-  params?: Record<string, unknown>;
-  path: (string | number)[];
-};
+  code: string
+  message: string
+  params?: Record<string, unknown>
+  path: (string | number)[]
+}
 ```
 
-| `type` | Kiedy | Frontend reaguje |
-|--------|-------|------------------|
-| `validation` | `ZodError` lub `AppError` z field-level | `setError` w RHF + (opcjonalnie) toast `message` |
-| `business` | `AppError` bez field | toast `message`, formularz nie blokowany |
-| `auth` | `UNAUTHORIZED`, `FORBIDDEN`, `INVALID_CREDENTIALS` | toast + ewentualny redirect na `/login` |
-| `server` | nieoczekiwany błąd | toast generyczny + `traceId` w UI dla supportu |
+| `type`       | Kiedy                                              | Frontend reaguje                                 |
+| ------------ | -------------------------------------------------- | ------------------------------------------------ |
+| `validation` | `ZodError` lub `AppError` z field-level            | `setError` w RHF + (opcjonalnie) toast `message` |
+| `business`   | `AppError` bez field                               | toast `message`, formularz nie blokowany         |
+| `auth`       | `UNAUTHORIZED`, `FORBIDDEN`, `INVALID_CREDENTIALS` | toast + ewentualny redirect na `/login`          |
+| `server`     | nieoczekiwany błąd                                 | toast generyczny + `traceId` w UI dla supportu   |
 
 ### 6.5. `toActionResult` — opakowanie wszystkich błędów
 
 ```typescript
 // lib/actions/to-action-result.ts
-import * as z from 'zod';
+import * as z from "zod"
 
-export async function toActionResult<T>(
-  fn: () => Promise<T>,
-): Promise<ActionResult<T>> {
+export async function toActionResult<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
-    const data = await fn();
-    return { status: 'success', data };
+    const data = await fn()
+    return { status: "success", data }
   } catch (err) {
     if (err instanceof z.ZodError) {
       return {
-        status: 'error',
+        status: "error",
         error: {
-          type: 'validation',
-          message: 'errors.validation.failed',
+          type: "validation",
+          message: "errors.validation.failed",
           fieldErrors: err.issues.map((issue) => ({
             code: issue.code,
             message: issue.message,
@@ -1190,13 +1193,13 @@ export async function toActionResult<T>(
             path: issue.path,
           })),
         },
-      };
+      }
     }
     if (err instanceof AppError) {
-      const type: ApiErrorResponse['type'] =
-        err.code === 'UNAUTHORIZED' || err.code === 'FORBIDDEN' ? 'auth' : 'business';
+      const type: ApiErrorResponse["type"] =
+        err.code === "UNAUTHORIZED" || err.code === "FORBIDDEN" ? "auth" : "business"
       return {
-        status: 'error',
+        status: "error",
         error: {
           type,
           message: `errors.${err.code}`,
@@ -1204,18 +1207,18 @@ export async function toActionResult<T>(
             ? [{ code: err.code, message: err.message, params: err.params, path: [err.field] }]
             : undefined,
         },
-      };
+      }
     }
-    const traceId = crypto.randomUUID();
-    console.error('[Server Action]', { traceId, err });
+    const traceId = crypto.randomUUID()
+    console.error("[Server Action]", { traceId, err })
     return {
-      status: 'error',
+      status: "error",
       error: {
-        type: 'server',
-        message: 'errors.unexpected',
+        type: "server",
+        message: "errors.unexpected",
         traceId,
       },
-    };
+    }
   }
 }
 ```
@@ -1224,35 +1227,35 @@ export async function toActionResult<T>(
 
 ```typescript
 async function onSubmit(values: CreateProductInput) {
-  const result = await createProductAction(values);
+  const result = await createProductAction(values)
 
-  if (result.status === 'success') {
-    toast.success(t('products.created'));
-    router.push(`/admin/products/${result.data.id}`);
-    return;
+  if (result.status === "success") {
+    toast.success(t("products.created"))
+    router.push(`/admin/products/${result.data.id}`)
+    return
   }
 
-  const { type, message, fieldErrors, traceId } = result.error;
+  const { type, message, fieldErrors, traceId } = result.error
 
   if (fieldErrors?.length) {
     for (const fe of fieldErrors) {
-      form.setError(fe.path.join('.') as any, {
+      form.setError(fe.path.join(".") as any, {
         type: fe.code,
         message: JSON.stringify({
           code: fe.code,
           params: fe.params,
           fallback: fe.message,
         }),
-      });
+      })
     }
   }
 
-  if (type !== 'validation' || !fieldErrors?.length) {
-    toast.error(t(message, result.error as any));
+  if (type !== "validation" || !fieldErrors?.length) {
+    toast.error(t(message, result.error as any))
   }
 
-  if (type === 'server' && traceId) {
-    console.error('Trace:', traceId);
+  if (type === "server" && traceId) {
+    console.error("Trace:", traceId)
   }
 }
 ```
@@ -1295,11 +1298,12 @@ Zod 4 pozwala definiować custom error w samej definicji schematu:
 
 ```typescript
 const passwordSchema = z.string().min(8, {
-  error: (issue) => JSON.stringify({
-    code: 'password_too_short',  // własny kod, własny klucz i18n
-    params: { minimum: issue.minimum },
-  }),
-});
+  error: (issue) =>
+    JSON.stringify({
+      code: "password_too_short", // własny kod, własny klucz i18n
+      params: { minimum: issue.minimum },
+    }),
+})
 ```
 
 Klucz `errors.password_too_short` musi istnieć w pliku tłumaczeń (sekcja 11).
@@ -1316,7 +1320,7 @@ Wrapper RHF przyjmuje opcjonalny `errorMessages` prop — mapę `code → messag
   errorMessages={{
     too_small: (params) =>
       `Hasło musi mieć przynajmniej ${params.minimum} znaków dla bezpieczeństwa konta`,
-    password_weak: 'Słabe hasło — dodaj wielką literę i cyfrę',
+    password_weak: "Słabe hasło — dodaj wielką literę i cyfrę",
   }}
 />
 ```
@@ -1327,43 +1331,43 @@ Wrapper RHF przyjmuje opcjonalny `errorMessages` prop — mapę `code → messag
 
 ```typescript
 // lib/validation/resolve-error-message.ts
-type ResolvedError = { code: string; params?: Record<string, unknown>; fallback: string };
+type ResolvedError = { code: string; params?: Record<string, unknown>; fallback: string }
 
 export function resolveErrorMessage(
   rhfErrorMessage: string,
-  fieldType: 'string' | 'number' | 'date',
+  fieldType: "string" | "number" | "date",
   overrides?: Record<string, ErrorMessageOverride>,
 ): string {
-  let parsed: ResolvedError;
+  let parsed: ResolvedError
   try {
-    parsed = JSON.parse(rhfErrorMessage);
+    parsed = JSON.parse(rhfErrorMessage)
   } catch {
-    return rhfErrorMessage;
+    return rhfErrorMessage
   }
 
-  const { code, params = {}, fallback } = parsed;
+  const { code, params = {}, fallback } = parsed
 
   // POZIOM 1: Override z komponentu
-  const override = overrides?.[code];
+  const override = overrides?.[code]
   if (override) {
-    return typeof override === 'function' ? override(params) : override;
+    return typeof override === "function" ? override(params) : override
   }
 
   // POZIOM 2 + 3: i18n lookup
   // Jeśli schemat zdefiniował własny kod (np. `password_too_short`), znajdzie go tutaj.
   // Jeśli nie — używa globalnego `${code}.${fieldType}`.
-  const specific = `errors.${code}.${fieldType}`;
-  const generic = `errors.${code}`;
+  const specific = `errors.${code}.${fieldType}`
+  const generic = `errors.${code}`
 
-  const trySpecific = t(specific, params);
-  if (trySpecific !== specific) return trySpecific;
+  const trySpecific = t(specific, params)
+  if (trySpecific !== specific) return trySpecific
 
-  const tryGeneric = t(generic, params);
-  if (tryGeneric !== generic) return tryGeneric;
+  const tryGeneric = t(generic, params)
+  if (tryGeneric !== generic) return tryGeneric
 
   // Backend fallback
-  if (fallback) return fallback;
-  return code;
+  if (fallback) return fallback
+  return code
 }
 ```
 
@@ -1378,6 +1382,7 @@ export function resolveErrorMessage(
 Wybieramy **NextAuth (Auth.js) v5** z **JWT sessions** — wybór świadomie edukacyjny, pełne uzasadnienie w ADR-001.
 
 Ustawienia:
+
 - **Provider**: tylko `Credentials` (email + password) w fazie 1. OAuth providers (Google/GitHub) — opcjonalnie w fazie 3.
 - **Sesja**: **JWT** (`session: { strategy: 'jwt' }`) — stateless, edge-ready, brak tabeli `Session`.
 - **TTL**: 7 dni rolling (każdy aktywny request przedłuża)
@@ -1402,74 +1407,79 @@ src/lib/auth/
 
 ```typescript
 // src/lib/auth/auth.config.ts
-import type { NextAuthConfig } from 'next-auth';
+import type { NextAuthConfig } from "next-auth"
 
 export const authConfig = {
   pages: {
-    signIn: '/login',
+    signIn: "/login",
   },
   callbacks: {
     authorized({ auth, request }) {
-      const isLoggedIn = !!auth?.user;
-      const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-      const isAccountRoute = request.nextUrl.pathname.startsWith('/account');
+      const isLoggedIn = !!auth?.user
+      const isAdminRoute = request.nextUrl.pathname.startsWith("/admin")
+      const isAccountRoute = request.nextUrl.pathname.startsWith("/account")
 
-      if (isAdminRoute || isAccountRoute) return isLoggedIn;
-      return true;
+      if (isAdminRoute || isAccountRoute) return isLoggedIn
+      return true
     },
   },
   providers: [], // pusty w edge config — providers dopisane w auth.ts
-} satisfies NextAuthConfig;
+} satisfies NextAuthConfig
 ```
 
 **`auth.ts`** (Node.js runtime, z DB):
 
 ```typescript
 // src/lib/auth/auth.ts
-import NextAuth from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { compare } from 'bcryptjs';
-import { prisma } from '@/lib/db/prisma';
-import { loginSchema } from '@/features/auth/schemas';
-import { authConfig } from './auth.config';
+import NextAuth from "next-auth"
+import Credentials from "next-auth/providers/credentials"
+import { PrismaAdapter } from "@auth/prisma-adapter"
+import { compare } from "bcryptjs"
+import { prisma } from "@/lib/db/prisma"
+import { loginSchema } from "@/features/auth/schemas"
+import { authConfig } from "./auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
-  session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 }, // 7 dni
+  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 }, // 7 dni
   providers: [
     Credentials({
       async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        const parsed = loginSchema.safeParse(credentials)
+        if (!parsed.success) return null
 
-        const { email, password } = parsed.data;
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return null;
+        const { email, password } = parsed.data
+        const user = await prisma.user.findUnique({ where: { email } })
+        if (!user) return null
 
-        const ok = await compare(password, user.passwordHash);
-        if (!ok) return null;
+        const ok = await compare(password, user.passwordHash)
+        if (!ok) return null
 
-        return { id: user.id, email: user.email, role: user.role, name: `${user.firstName} ${user.lastName}` };
+        return {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name: `${user.firstName} ${user.lastName}`,
+        }
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.role = user.role;
+        token.id = user.id
+        token.role = user.role
       }
-      return token;
+      return token
     },
     async session({ session, token }) {
-      if (token.id) session.user.id = token.id as string;
-      if (token.role) session.user.role = token.role as UserRole;
-      return session;
+      if (token.id) session.user.id = token.id as string
+      if (token.role) session.user.role = token.role as UserRole
+      return session
     },
   },
-});
+})
 ```
 
 ### 7.3. Middleware / Proxy
@@ -1478,14 +1488,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 ```typescript
 // src/proxy.ts (Next.js 16) lub src/middleware.ts (Next.js 15)
-import NextAuth from 'next-auth';
-import { authConfig } from '@/lib/auth/auth.config'; // edge-safe!
+import NextAuth from "next-auth"
+import { authConfig } from "@/lib/auth/auth.config" // edge-safe!
 
-export const { auth: middleware } = NextAuth(authConfig);
+export const { auth: middleware } = NextAuth(authConfig)
 
 export const config = {
-  matcher: ['/admin/:path*', '/account/:path*'],
-};
+  matcher: ["/admin/:path*", "/account/:path*"],
+}
 ```
 
 Middleware używa **tylko** `authConfig` (bez Prisma adaptera) — JWT walidacja jest kryptograficzna, nie potrzebuje DB. To główna zaleta JWT sessions — edge runtime works OOTB.
@@ -1494,15 +1504,15 @@ Middleware używa **tylko** `authConfig` (bez Prisma adaptera) — JWT walidacja
 
 ```typescript
 // lib/auth/require-role.ts
-import { auth } from '@/lib/auth/auth';
-import { AppError } from '@/lib/errors/app-error';
-import type { UserRole } from '@prisma/client';
+import { auth } from "@/lib/auth/auth"
+import { AppError } from "@/lib/errors/app-error"
+import type { UserRole } from "@prisma/client"
 
 export async function requireRole(roles: UserRole[]) {
-  const session = await auth(); // v5 API — działa w RSC, SA, Route Handler
-  if (!session?.user) throw new AppError('UNAUTHORIZED');
-  if (!roles.includes(session.user.role)) throw new AppError('FORBIDDEN');
-  return session;
+  const session = await auth() // v5 API — działa w RSC, SA, Route Handler
+  if (!session?.user) throw new AppError("UNAUTHORIZED")
+  if (!roles.includes(session.user.role)) throw new AppError("FORBIDDEN")
+  return session
 }
 ```
 
@@ -1510,16 +1520,17 @@ export async function requireRole(roles: UserRole[]) {
 
 Te trade-offy akceptujemy jako część decyzji edukacyjnej (ADR-001). Spisane wprost, żeby później nie były niespodzianką:
 
-| Konsekwencja | Co to znaczy w praktyce |
-|--------------|-------------------------|
-| **Brak immediate logout** | Sesja żyje do końca TTL (7 dni). Admin nie może "wylogować" konkretnego usera natychmiast. Workaround w fazie 2: rotacja `userId.tokenVersion` — przy zmianie wymusza re-login. |
-| **Brak immediate role change** | Promocja `CUSTOMER → ADMIN` nie wpłynie na zalogowaną sesję — user musi re-loginnąć lub czekać do TTL. W fazie 1 akceptujemy. |
-| **Brak "wyloguj ze wszystkich urządzeń"** | Niemożliwe bez dodatkowej tabeli `JWTBlacklist` (która zabija benefit "stateless"). Świadomie nie implementujemy. |
-| **Większe cookies** | JWT ~500 bajtów vs DB session ID ~30 bajtów. Niewielki narzut sieciowy. |
-| **Zmiana danych usera (np. nazwisko)** | Nie widoczna w session do następnego JWT refresh. Mitygacja: dla read-only display fetchujemy `User` z DB w RSC zamiast czytać z `session.user`. |
+| Konsekwencja                                 | Co to znaczy w praktyce                                                                                                                                                                            |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Brak immediate logout**                    | Sesja żyje do końca TTL (7 dni). Admin nie może "wylogować" konkretnego usera natychmiast. Workaround w fazie 2: rotacja `userId.tokenVersion` — przy zmianie wymusza re-login.                    |
+| **Brak immediate role change**               | Promocja `CUSTOMER → ADMIN` nie wpłynie na zalogowaną sesję — user musi re-loginnąć lub czekać do TTL. W fazie 1 akceptujemy.                                                                      |
+| **Brak "wyloguj ze wszystkich urządzeń"**    | Niemożliwe bez dodatkowej tabeli `JWTBlacklist` (która zabija benefit "stateless"). Świadomie nie implementujemy.                                                                                  |
+| **Większe cookies**                          | JWT ~500 bajtów vs DB session ID ~30 bajtów. Niewielki narzut sieciowy.                                                                                                                            |
+| **Zmiana danych usera (np. nazwisko)**       | Nie widoczna w session do następnego JWT refresh. Mitygacja: dla read-only display fetchujemy `User` z DB w RSC zamiast czytać z `session.user`.                                                   |
 | **`session callback` ma znany problem w v5** | Nie jest wywoływany automatycznie przy każdym request — tylko po `update()` lub re-login. Dla naszego use case (rola w JWT) OK, ale jeśli kiedyś dodamy "live update" sesji, trzeba będzie patcha. |
 
 **Co kompensuje JWT**:
+
 - Edge middleware działa bez DB connection
 - Brak tabeli `Session` do cleanupu
 - Stateless = łatwiej skalować (chociaż w skali portfolio to bez znaczenia)
@@ -1544,12 +1555,14 @@ model PasswordResetToken {
 ```
 
 **Flow**:
+
 1. `POST /forgot-password` → `requestPasswordResetAction({ email })` — zawsze success (nie ujawniamy istnienia konta)
 2. Token (32 bytes random), **SHA-256 hash** w DB, link mailem (Resend), TTL 1h, single-use
 3. `POST /reset-password` → `resetPasswordAction({ token, newPassword })`
 4. Po sukcesie: opcjonalnie auto-signIn przez `signIn('credentials', ...)` (faza 2)
 
 **Token security**:
+
 - Raw token w URL i emailu, **SHA-256 hash** w DB (gdyby DB wyciekło, tokeny nieużywalne)
 - Single-use (`usedAt` blokuje ponowne użycie)
 - Stary token invalidowany przy nowym request
@@ -1560,23 +1573,23 @@ Po udanym logowaniu chcemy zmergować guest cart (cookie `__dg_guest_cart`) z us
 
 ```typescript
 // src/lib/auth/auth.ts (fragment)
-import { cookies } from 'next/headers';
-import { cartService } from '@/features/cart/services/cart.service';
+import { cookies } from "next/headers"
+import { cartService } from "@/features/cart/services/cart.service"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   // ... providers, callbacks
   events: {
     async signIn({ user }) {
-      const cookieStore = await cookies();
-      const guestToken = cookieStore.get('__dg_guest_cart')?.value;
+      const cookieStore = await cookies()
+      const guestToken = cookieStore.get("__dg_guest_cart")?.value
       if (guestToken && user.id) {
-        await cartService.mergeGuestIntoUser(guestToken, user.id);
-        cookieStore.delete('__dg_guest_cart');
+        await cartService.mergeGuestIntoUser(guestToken, user.id)
+        cookieStore.delete("__dg_guest_cart")
       }
     },
   },
-});
+})
 ```
 
 **Dlaczego `events.signIn`, a nie callback** — eventy są fire-and-forget (błędy w merge nie blokują logowania). Jeśli merge zawiedzie (DB hiccup), user nadal może się zalogować, a jego guest cart pozostaje (cookie expire'uje za 30 dni). W kolejnej akcji "add to cart" jako zalogowany — naprawi się przez idempotentny `addItem`.
@@ -1588,6 +1601,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 ### 8.1. Decyzja: cart **zawsze w bazie**
 
 Powody:
+
 - Jednolite warstwy (Action → Service → Repository → Prisma) bez wyjątku dla guesta
 - Łatwa migracja na "saved carts" w przyszłości
 - Merge przy logowaniu = banalny SQL
@@ -1660,24 +1674,24 @@ LOGIN (z aktywnym guest cart):
 // features/cart/services/cart.service.ts
 export const cartService = {
   async addItem(input: AddCartItemInput, ctx: CartContext): Promise<Cart> {
-    const cart = await this.resolveCart(ctx);
-    await this.validateStock(input.variantId, input.quantity);
-    return cartRepository.addItem(cart.id, input);
+    const cart = await this.resolveCart(ctx)
+    await this.validateStock(input.variantId, input.quantity)
+    return cartRepository.addItem(cart.id, input)
   },
 
   async resolveCart(ctx: CartContext): Promise<Cart> {
-    if (ctx.userId) return cartRepository.findOrCreateByUserId(ctx.userId);
+    if (ctx.userId) return cartRepository.findOrCreateByUserId(ctx.userId)
     if (ctx.guestToken) {
-      const found = await cartRepository.findByGuestToken(ctx.guestToken);
-      if (found) return found;
+      const found = await cartRepository.findByGuestToken(ctx.guestToken)
+      if (found) return found
     }
-    return cartRepository.createGuestCart();
+    return cartRepository.createGuestCart()
   },
 
   async mergeGuestIntoUser(guestToken: string, userId: string): Promise<void> {
     // transakcja
   },
-};
+}
 ```
 
 ### 8.6. Czyszczenie
@@ -1691,6 +1705,7 @@ Cron (faza 2, Vercel Cron) — usuwa cart guestów z `expiresAt < now()`.
 ### 9.1. Faza 1 — "Fake PAID"
 
 Flow:
+
 1. Stepper: Koszyk → Dane → Dostawa → Podsumowanie
 2. **Jeden duży formularz RHF** z conditional render krokami (jeden submit, jedna walidacja)
 3. Submit → Server Action `placeOrderAction`:
@@ -1739,6 +1754,7 @@ Każda zmiana statusu = `OrderStatusChange` row (audit trail). Tylko przez `orde
 ### 10.2. Konwencja wrapperów
 
 Każdy wrapper:
+
 1. Przyjmuje `name` typowany do schematu (`Path<TFieldValues>`)
 2. Używa `useController` (nie `<Controller>`)
 3. Pobiera `formState.errors[name]` i przepuszcza przez `resolveErrorMessage` (sekcja 6.7)
@@ -1793,32 +1809,33 @@ export function RHFTextField<T extends FieldValues>({
 
 ### 10.3. Kolejność dodawania wrapperów (driven by need)
 
-| # | Wrapper | Pierwszy ekran |
-|---|---------|---------------|
-| 1 | `RHFTextField` | Login, Register |
-| 2 | `RHFPasswordField` | Login, Register |
-| 3 | `RHFCheckbox` | Register (terms), filtry PLP |
-| 4 | `RHFTextarea` | Admin product form |
-| 5 | `RHFSelect` | Checkout, admin |
-| 6 | `RHFRadioGroup` | Checkout (shipping) |
-| 7 | `RHFNumberInput` | Admin (price, stock) |
-| 8 | `RHFFieldArray` (variants z discriminated union) | Admin product form |
-| 9 | `RHFComboboxAsync` *(faza 2)* | Admin search |
-| 10 | `RHFDatePicker` *(faza 2)* | Admin orders filter |
+| #   | Wrapper                                          | Pierwszy ekran               |
+| --- | ------------------------------------------------ | ---------------------------- |
+| 1   | `RHFTextField`                                   | Login, Register              |
+| 2   | `RHFPasswordField`                               | Login, Register              |
+| 3   | `RHFCheckbox`                                    | Register (terms), filtry PLP |
+| 4   | `RHFTextarea`                                    | Admin product form           |
+| 5   | `RHFSelect`                                      | Checkout, admin              |
+| 6   | `RHFRadioGroup`                                  | Checkout (shipping)          |
+| 7   | `RHFNumberInput`                                 | Admin (price, stock)         |
+| 8   | `RHFFieldArray` (variants z discriminated union) | Admin product form           |
+| 9   | `RHFComboboxAsync` _(faza 2)_                    | Admin search                 |
+| 10  | `RHFDatePicker` _(faza 2)_                       | Admin orders filter          |
 
 ### 10.4. Komponenty strukturalne
 
-| Komponent | Pierwsze użycie | Faza |
-|-----------|----------------|------|
-| `PageHeader` | Admin pages | 1 |
-| `EmptyState` | Pusty koszyk | 1 |
-| `ConfirmationModal` | Delete product | 1 |
-| `ActionDrawer` | Admin edit | 1 |
-| `DataTable` (TanStack Table) | Admin lista | 1 |
-| `Stepper` | Checkout | 2 |
-| `Timeline` | Order status | 2 |
+| Komponent                    | Pierwsze użycie | Faza |
+| ---------------------------- | --------------- | ---- |
+| `PageHeader`                 | Admin pages     | 1    |
+| `EmptyState`                 | Pusty koszyk    | 1    |
+| `ConfirmationModal`          | Delete product  | 1    |
+| `ActionDrawer`               | Admin edit      | 1    |
+| `DataTable` (TanStack Table) | Admin lista     | 1    |
+| `Stepper`                    | Checkout        | 2    |
+| `Timeline`                   | Order status    | 2    |
 
 ---
+
 ## 11. Internacjonalizacja (i18n)
 
 ### 11.1. Faza 1 — minimal viable i18n z plikami per feature
@@ -1848,6 +1865,7 @@ src/features/orders/i18n/
 ```
 
 **Dlaczego per feature**:
+
 - Feature jest samowystarczalny — usunięcie folderu feature = usunięcie też jego tłumaczeń, zero leftoverów
 - Łatwiej review w PR — widzisz wszystkie zmiany w jednym miejscu
 - Mniej konfliktów w git — równolegli pracownicy nie edytują tego samego pliku
@@ -1857,13 +1875,13 @@ src/features/orders/i18n/
 
 ```typescript
 // src/i18n/messages.ts
-import commonErrors from './pl/common/errors.json' with { type: 'json' };
-import commonNav from './pl/common/nav.json' with { type: 'json' };
-import commonForms from './pl/common/forms.json' with { type: 'json' };
+import commonErrors from "./pl/common/errors.json" with { type: "json" }
+import commonNav from "./pl/common/nav.json" with { type: "json" }
+import commonForms from "./pl/common/forms.json" with { type: "json" }
 
-import productsPl from '@/features/products/i18n/pl.json' with { type: 'json' };
-import cartPl from '@/features/cart/i18n/pl.json' with { type: 'json' };
-import ordersPl from '@/features/orders/i18n/pl.json' with { type: 'json' };
+import productsPl from "@/features/products/i18n/pl.json" with { type: "json" }
+import cartPl from "@/features/cart/i18n/pl.json" with { type: "json" }
+import ordersPl from "@/features/orders/i18n/pl.json" with { type: "json" }
 
 export const messages = {
   pl: {
@@ -1874,34 +1892,34 @@ export const messages = {
     cart: cartPl,
     orders: ordersPl,
   },
-} as const;
+} as const
 
-export type Locale = keyof typeof messages;
-export type MessageKey = string; // np. "products.created", "errors.too_small.string"
+export type Locale = keyof typeof messages
+export type MessageKey = string // np. "products.created", "errors.too_small.string"
 ```
 
 **Helper**:
 
 ```typescript
 // src/i18n/t.ts
-import { messages } from './messages';
+import { messages } from "./messages"
 
-const currentLocale = 'pl'; // faza 2: pobiera z cookie
+const currentLocale = "pl" // faza 2: pobiera z cookie
 
 export function t(key: string, params?: Record<string, unknown>): string {
-  const parts = key.split('.');
-  let result: any = messages[currentLocale];
+  const parts = key.split(".")
+  let result: any = messages[currentLocale]
   for (const part of parts) {
-    result = result?.[part];
+    result = result?.[part]
   }
-  if (typeof result !== 'string') return key;
+  if (typeof result !== "string") return key
 
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      result = result.replace(`{${k}}`, String(v));
+      result = result.replace(`{${k}}`, String(v))
     }
   }
-  return result;
+  return result
 }
 ```
 
@@ -1932,6 +1950,7 @@ Użycie: `t('products.created')` → "Produkt został utworzony".
 ### 11.2. Faza 2 — next-intl
 
 Gdy dodajemy angielski:
+
 - `t()` → `useTranslations()` (jednorazowy refactor — klucze zostają)
 - Cookie-based locale (`__dg_locale`, bez `[locale]` w URL — decyzja ze Setlist projektu)
 - Middleware ustawia locale na podstawie cookie / Accept-Language
@@ -1954,17 +1973,20 @@ Unit (Vitest, pure functions)  ◄── 20% — helpery, formattery, error map
 ### 12.2. Co testujemy gdzie
 
 **Unit (20%)** — `*.test.ts` obok pliku
+
 - `formatMoney("249.00") → "249,00 zł"`
 - `extractParams(zodIssue)` z error map
 - `resolveErrorMessage` z trzech poziomów kaskady
 - `canTransitionStatus(from, to)`
 
 **Component** — `*.test.tsx` obok komponentu
+
 - `RHFTextField`: renderuje error, formatuje parametry, aria-invalid
 - `RHFTextField` z `errorMessages` override — sprawdza poziom 1 kaskady
 - **Nie testujemy** komponentów shadcn (są przetestowane upstream)
 
 **Integration (60%)** — `tests/integration/`
+
 - Każda **Server Action** (mutacja) ma test:
   - happy path → DB state correct + `revalidatePath` wywołany
   - validation error → fieldErrors zwrócone z poprawnymi `code` i `params`
@@ -1978,6 +2000,7 @@ Unit (Vitest, pure functions)  ◄── 20% — helpery, formattery, error map
 - **MSW**: mockujemy Resend (email reset hasła), Stripe webhook (faza 2)
 
 **E2E (20%)** — `tests/e2e/`
+
 - ⭐ Critical path 1: **Guest → add to cart → checkout → order placed**
 - ⭐ Critical path 2: **Register → login → buy → see order in history**
 - ⭐ Critical path 3: **Admin → create product → publish → visible on PLP**
@@ -2028,13 +2051,8 @@ Trzy hooki, w kolejności od najlżejszego do najcięższego:
 // package.json
 {
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
-      "prettier --write",
-      "eslint --fix --max-warnings=0"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ]
+    "*.{ts,tsx,js,jsx}": ["prettier --write", "eslint --fix --max-warnings=0"],
+    "*.{json,md,yml,yaml}": ["prettier --write"]
   }
 }
 ```
@@ -2046,13 +2064,14 @@ npx lint-staged
 
 **Co dokładnie sprawdza i dlaczego**:
 
-| Sprawdzenie | Dlaczego ważne | Co się dzieje przy błędzie |
-|-------------|----------------|----------------------------|
-| `prettier --write` na plikach TS/TSX/JS | Formatowanie automatyczne (spacje, średniki, długość linii). Eliminuje "stylistyczne" PR-y i diffy. | Plik jest **automatycznie zmieniany** i dodawany ponownie do commita. Brak interakcji od dewelopera. |
-| `eslint --fix --max-warnings=0` | Łapie błędy semantyczne (`no-unused-vars`, `no-explicit-any`, hooks rules), wymusza konwencje. `--max-warnings=0` traktuje warning jak error — nie ma "zostawię na potem". | Próbuje naprawić automatycznie (np. usuwa nieużywane importy). Jeśli się nie da → commit jest **odrzucony**, dev musi naprawić. |
-| `prettier --write` na JSON/MD/YML | Spójność formatów konfigów, czytelność README. | Auto-fix. |
+| Sprawdzenie                             | Dlaczego ważne                                                                                                                                                             | Co się dzieje przy błędzie                                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `prettier --write` na plikach TS/TSX/JS | Formatowanie automatyczne (spacje, średniki, długość linii). Eliminuje "stylistyczne" PR-y i diffy.                                                                        | Plik jest **automatycznie zmieniany** i dodawany ponownie do commita. Brak interakcji od dewelopera.                            |
+| `eslint --fix --max-warnings=0`         | Łapie błędy semantyczne (`no-unused-vars`, `no-explicit-any`, hooks rules), wymusza konwencje. `--max-warnings=0` traktuje warning jak error — nie ma "zostawię na potem". | Próbuje naprawić automatycznie (np. usuwa nieużywane importy). Jeśli się nie da → commit jest **odrzucony**, dev musi naprawić. |
+| `prettier --write` na JSON/MD/YML       | Spójność formatów konfigów, czytelność README.                                                                                                                             | Auto-fix.                                                                                                                       |
 
 **Co celowo NIE robi pre-commit**:
+
 - Nie odpala testów — zbyt wolne, frustrujące przy małych commitach.
 - Nie robi typecheck (`tsc --noEmit`) — typecheck musi widzieć całe repo, nie tylko zmienione pliki. Idzie do pre-push.
 
@@ -2071,12 +2090,13 @@ npx lint-staged
 npm run typecheck && npm run test:unit
 ```
 
-| Sprawdzenie | Dlaczego ważne | Co się dzieje przy błędzie |
-|-------------|----------------|----------------------------|
-| `tsc --noEmit` | Pełny TypeScript check całego projektu. ESLint w pre-commit nie wykrywa wszystkich błędów typów (np. niespójność między modułami). Sprawdza też cross-file dependencies. | Push **odrzucony**. Dev musi naprawić błędy typów. |
-| `vitest run --reporter=dot` (unit only) | Tylko testy `*.test.ts` w `src/**` (unit + component). **Nie** odpalamy `tests/integration/` (wymagają DB) ani e2e (zbyt wolne). | Push **odrzucony** jeśli któryś test failuje. |
+| Sprawdzenie                             | Dlaczego ważne                                                                                                                                                           | Co się dzieje przy błędzie                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `tsc --noEmit`                          | Pełny TypeScript check całego projektu. ESLint w pre-commit nie wykrywa wszystkich błędów typów (np. niespójność między modułami). Sprawdza też cross-file dependencies. | Push **odrzucony**. Dev musi naprawić błędy typów. |
+| `vitest run --reporter=dot` (unit only) | Tylko testy `*.test.ts` w `src/**` (unit + component). **Nie** odpalamy `tests/integration/` (wymagają DB) ani e2e (zbyt wolne).                                         | Push **odrzucony** jeśli któryś test failuje.      |
 
 **Co celowo NIE robi pre-push**:
+
 - Integration testów (potrzebują testowej DB; CI to robi w izolowanym środowisku)
 - E2E (5-10 minut, killer DX)
 - `next build` (długie, CI to robi)
@@ -2088,6 +2108,7 @@ npm run typecheck && npm run test:unit
 #### 🪝 commit-msg — uruchamia się **po** wpisaniu wiadomości commit, **przed** zapisaniem commita
 
 **Cel**: wymuszenie **Conventional Commits**. Niby drobiazg, ale daje:
+
 - Automatyczne generowanie changeloga (faza 2)
 - Czytelną historię w `git log --oneline`
 - Możliwość filtrowania zmian po typie (`git log --grep="^feat"`)
@@ -2104,24 +2125,42 @@ npx --no -- commitlint --edit "$1"
 
 ```typescript
 export default {
-  extends: ['@commitlint/config-conventional'],
+  extends: ["@commitlint/config-conventional"],
   rules: {
-    'type-enum': [2, 'always', [
-      'feature',  // nowa funkcjonalność user-visible
-      'hotfix',   // bug fix
-      'refactor', // refactoring (w tym performance, optymalizacje)
-      'test',     // dodanie/zmiana testów
-      'docs',     // dokumentacja (README, ARCHITECTURE.md, JSDoc, komentarze)
-      'chore',    // wszystko inne — formatowanie, deps, build, CI, lockfile, tooling
-    ]],
-    'scope-enum': [2, 'always', [
-      'products', 'cart', 'orders', 'checkout', 'auth', 'admin',
-      'ui', 'form', 'i18n', 'db', 'config', 'deps',
-    ]],
-    'subject-case': [2, 'always', 'lower-case'],
-    'subject-max-length': [2, 'always', 100],
+    "type-enum": [
+      2,
+      "always",
+      [
+        "feature", // nowa funkcjonalność user-visible
+        "hotfix", // bug fix
+        "refactor", // refactoring (w tym performance, optymalizacje)
+        "test", // dodanie/zmiana testów
+        "docs", // dokumentacja (README, ARCHITECTURE.md, JSDoc, komentarze)
+        "chore", // wszystko inne — formatowanie, deps, build, CI, lockfile, tooling
+      ],
+    ],
+    "scope-enum": [
+      2,
+      "always",
+      [
+        "products",
+        "cart",
+        "orders",
+        "checkout",
+        "auth",
+        "admin",
+        "ui",
+        "form",
+        "i18n",
+        "db",
+        "config",
+        "deps",
+      ],
+    ],
+    "subject-case": [2, "always", "lower-case"],
+    "subject-max-length": [2, "always", 100],
   },
-};
+}
 ```
 
 **Reguła decyzyjna gdy się wahasz, jaki typ wybrać**:
@@ -2141,14 +2180,14 @@ Czy zmiana wpływa na to co user widzi/może zrobić?
                         └── NIE → chore
 ```
 
-| Sprawdzenie | Przykład OK | Przykład odrzucony |
-|-------------|-------------|---------------------|
-| Format `type(scope): subject` | `feature(products): add variant picker to PDP` | `added variant picker` |
-| `type` z listy dozwolonych | `hotfix(cart): handle stock race` | `bugfix: cart issue` |
-| `scope` z listy dozwolonych (lub bez scope dla globalnych) | `feature(products): ...` | `feature(productss): ...` |
-| `subject` lowercase | `feature(auth): add reset password flow` | `feature(auth): Add Reset Password Flow` |
-| `subject` max 100 znaków | (krótkie) | (super długie pojedyncze zdanie) |
-| Bez kropki na końcu subject | `hotfix(cart): handle empty state` | `hotfix(cart): handle empty state.` |
+| Sprawdzenie                                                | Przykład OK                                    | Przykład odrzucony                       |
+| ---------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------- |
+| Format `type(scope): subject`                              | `feature(products): add variant picker to PDP` | `added variant picker`                   |
+| `type` z listy dozwolonych                                 | `hotfix(cart): handle stock race`              | `bugfix: cart issue`                     |
+| `scope` z listy dozwolonych (lub bez scope dla globalnych) | `feature(products): ...`                       | `feature(productss): ...`                |
+| `subject` lowercase                                        | `feature(auth): add reset password flow`       | `feature(auth): Add Reset Password Flow` |
+| `subject` max 100 znaków                                   | (krótkie)                                      | (super długie pojedyncze zdanie)         |
+| Bez kropki na końcu subject                                | `hotfix(cart): handle empty state`             | `hotfix(cart): handle empty state.`      |
 
 **Co się dzieje przy błędzie**: commit jest **odrzucony** z komunikatem od commitlint pokazującym co jest nie tak. Dev poprawia message i ponawia.
 
@@ -2187,15 +2226,15 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run typecheck      # tsc --noEmit
-    - run: npm run lint           # eslint
-    - run: npm run format:check   # prettier --check
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck # tsc --noEmit
+      - run: npm run lint # eslint
+      - run: npm run format:check # prettier --check
 
   unit-integration:
     runs-on: ubuntu-latest
@@ -2211,21 +2250,21 @@ jobs:
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with: { node-version: '22', cache: 'npm' }
-    - run: npm ci
-    - run: npx prisma migrate deploy
-    - run: npm run test           # vitest run (unit + integration)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "npm" }
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npm run test # vitest run (unit + integration)
 
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with: { node-version: '22', cache: 'npm' }
-    - run: npm ci
-    - run: npm run build          # next build
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "npm" }
+      - run: npm ci
+      - run: npm run build # next build
 
   e2e:
     needs: [unit-integration, build]
@@ -2235,17 +2274,17 @@ jobs:
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with: { node-version: '22', cache: 'npm' }
-    - run: npm ci
-    - run: npx prisma migrate deploy
-    - run: npx prisma db seed
-    - run: npx playwright install --with-deps chromium
-    - run: npm run build
-    - run: npm run start &        # uruchom Next.js
-    - run: npx wait-on http://localhost:3000
-    - run: npx playwright test
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: "npm" }
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx prisma db seed
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run start & # uruchom Next.js
+      - run: npx wait-on http://localhost:3000
+      - run: npx playwright test
 ```
 
 **Wszystkie 4 joby muszą przejść** żeby PR mógł być zmergowany (branch protection rules).
@@ -2398,21 +2437,23 @@ Closes #142
 
 ### 14.2. Faza 3 — Sentry + co jeszcze?
 
-| Cel | Narzędzie | Uzasadnienie |
-|-----|-----------|--------------|
-| Error tracking | **Sentry** | Standard, dobra integracja Next.js, free tier wystarczy |
-| Web Vitals / RUM | **Vercel Analytics** (built-in) | Najprostsze, zero setup |
-| Product analytics | **PostHog** (opcjonalnie) | Jeśli będzie potrzeba mierzyć konwersję |
-| Uptime monitoring | **BetterStack** lub Vercel Cron + ping | Faza 3 |
-| Structured logs | Vercel Logs → **Axiom** | Jeśli debug w produkcji stanie się problemem |
+| Cel               | Narzędzie                              | Uzasadnienie                                            |
+| ----------------- | -------------------------------------- | ------------------------------------------------------- |
+| Error tracking    | **Sentry**                             | Standard, dobra integracja Next.js, free tier wystarczy |
+| Web Vitals / RUM  | **Vercel Analytics** (built-in)        | Najprostsze, zero setup                                 |
+| Product analytics | **PostHog** (opcjonalnie)              | Jeśli będzie potrzeba mierzyć konwersję                 |
+| Uptime monitoring | **BetterStack** lub Vercel Cron + ping | Faza 3                                                  |
+| Structured logs   | Vercel Logs → **Axiom**                | Jeśli debug w produkcji stanie się problemem            |
 
 **Co śledzimy w Sentry**:
+
 - Wszystkie `INTERNAL_ERROR` z `toActionResult`
 - Failed Stripe webhooks (faza 2)
 - 5xx z Route Handlers
 - Performance: TTFB na PDP, PLP (samplowane)
 
 **Czego NIE śledzimy**:
+
 - `VALIDATION_ERROR` (zwykła interakcja użytkownika)
 - `UNAUTHORIZED` / `FORBIDDEN` (oczekiwane)
 - Cancelled requests
@@ -2429,12 +2470,12 @@ Closes #142
 
 ### 15.2. Środowiska
 
-| Środowisko | URL | DB | Faza |
-|------------|-----|-----|------|
-| Local | localhost:3000 | local Postgres (docker) lub Neon dev branch | 1 |
-| Production | deskgear.vercel.app | Neon `main` branch | 1 |
-| Preview (per PR) | `*-deskgear.vercel.app` | Neon preview branches | **2** |
-| Staging | staging.deskgear.* | Neon staging | 3 |
+| Środowisko       | URL                     | DB                                          | Faza  |
+| ---------------- | ----------------------- | ------------------------------------------- | ----- |
+| Local            | localhost:3000          | local Postgres (docker) lub Neon dev branch | 1     |
+| Production       | deskgear.vercel.app     | Neon `main` branch                          | 1     |
+| Preview (per PR) | `*-deskgear.vercel.app` | Neon preview branches                       | **2** |
+| Staging          | staging.deskgear.\*     | Neon staging                                | 3     |
 
 ### 15.3. Neon Preview Branching — dlaczego faza 2 i jak to działa
 
@@ -2443,6 +2484,7 @@ Closes #142
 W fazie 1 mamy **jedno środowisko produkcyjne** + lokalny dev. PR-y testujemy lokalnie. To wystarczy do bootstrapu.
 
 Preview branches dodajemy w fazie 2, gdy:
+
 - Sklep ma realnych użytkowników i jest ryzykownie testować zmiany schematu na prod
 - Pojawiają się PR-y modyfikujące migracje (`prisma migrate`) — chcemy je przetestować na **kopii prawdziwych danych**
 - Chcemy pokazać reviewerowi działający feature pod konkretnym URL-em, nie tylko zrzuty ekranu
@@ -2508,6 +2550,7 @@ CI/CD: prisma migrate deploy (na NEON BRANCH, nie na main!)
 ```
 
 **Teraz**:
+
 - Reviewer klika link, widzi działający feature z prawdziwymi danymi (oczywiście anonimizowanymi/seedowanymi do testowania)
 - Mogę przetestować migrację na realnej skali (czy `ALTER TABLE` na 500k produktach nie zablokuje bazy)
 - Jeśli migracja jest zła → naprawiam, push, automat odtwarza branch
@@ -2527,27 +2570,27 @@ jobs:
   create-preview-branch:
     if: github.event.action != 'closed'
     steps:
-    - name: Create Neon branch
-      uses: neondatabase/create-branch-action@v5
-      with:
-        project_id: ${{ secrets.NEON_PROJECT_ID }}
-        parent: main
-        branch_name: preview/pr-${{ github.event.pull_request.number }}
-        api_key: ${{ secrets.NEON_API_KEY }}
-      id: branch
-    - name: Run migrations on branch
-      run: npx prisma migrate deploy
-      env:
-        DATABASE_URL: ${{ steps.branch.outputs.db_url }}
-    - name: Set Vercel env for this PR
-      run: vercel env add DATABASE_URL preview ${{ github.head_ref }}
+      - name: Create Neon branch
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          parent: main
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+        id: branch
+      - name: Run migrations on branch
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ steps.branch.outputs.db_url }}
+      - name: Set Vercel env for this PR
+        run: vercel env add DATABASE_URL preview ${{ github.head_ref }}
 
   delete-preview-branch:
     if: github.event.action == 'closed'
     steps:
-    - uses: neondatabase/delete-branch-action@v3
-      with:
-        branch_name: preview/pr-${{ github.event.pull_request.number }}
+      - uses: neondatabase/delete-branch-action@v3
+        with:
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
 ```
 
 #### Limity (free tier Neon)
@@ -2586,34 +2629,35 @@ SENTRY_DSN=
 Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`).
 
 ---
+
 ## 16. Plan faz
 
 > Plan jest **żywy**. Faza 0 i 1 są dobrze określone (poniżej w formacie checkbox = task pod GitHub Issue). Faza 2+ to high-level. Każda faza kończy się **deployowalnym** stanem.
 
 ### Co jest w MVP (Faza 1), a co w Fazie 2 — high-level
 
-| Zakres | MVP (Faza 1) | Faza 2 |
-|--------|:------------:|:------:|
-| Przeglądanie produktów (PLP, PDP, filtry) | ✅ | |
-| Wybór wariantu | ✅ | |
-| Koszyk (guest + logged) z merge na login | ✅ | |
-| Rejestracja, login, reset hasła | ✅ | |
-| Lokalne obrazki w `public/products/` (commitowane) | ✅ | |
-| Seed z ~40-60 produktami | ✅ | |
-| Layout: Header, Footer, responsywność | ✅ | |
-| Wrappery RHF: text, password, checkbox, textarea, select, radio, number | ✅ | |
-| **Checkout flow (stepper, formularz)** | | ✅ |
-| **Składanie zamówienia ("Fake PAID")** | | ✅ |
-| **Historia zamówień użytkownika** | | ✅ |
-| **Admin panel: CRUD produktów (z `RHFFieldArray`)** | | ✅ |
-| **Admin panel: zarządzanie zamówieniami** | | ✅ |
-| **Faktura VAT (z NIP-em w formularzu)** | | ✅ |
-| **Email potwierdzenia zamówienia (Resend)** | | ✅ |
-| **Neon preview branches per PR** | | ✅ |
-| Stripe (real payments) | | (Faza 3) |
-| EN i18n | | (Faza 3) |
-| Sentry | | (Faza 3) |
-| Admin: upload obrazków przez UI (UploadThing) | | (Faza 3) |
+| Zakres                                                                  | MVP (Faza 1) |  Faza 2  |
+| ----------------------------------------------------------------------- | :----------: | :------: |
+| Przeglądanie produktów (PLP, PDP, filtry)                               |      ✅      |          |
+| Wybór wariantu                                                          |      ✅      |          |
+| Koszyk (guest + logged) z merge na login                                |      ✅      |          |
+| Rejestracja, login, reset hasła                                         |      ✅      |          |
+| Lokalne obrazki w `public/products/` (commitowane)                      |      ✅      |          |
+| Seed z ~40-60 produktami                                                |      ✅      |          |
+| Layout: Header, Footer, responsywność                                   |      ✅      |          |
+| Wrappery RHF: text, password, checkbox, textarea, select, radio, number |      ✅      |          |
+| **Checkout flow (stepper, formularz)**                                  |              |    ✅    |
+| **Składanie zamówienia ("Fake PAID")**                                  |              |    ✅    |
+| **Historia zamówień użytkownika**                                       |              |    ✅    |
+| **Admin panel: CRUD produktów (z `RHFFieldArray`)**                     |              |    ✅    |
+| **Admin panel: zarządzanie zamówieniami**                               |              |    ✅    |
+| **Faktura VAT (z NIP-em w formularzu)**                                 |              |    ✅    |
+| **Email potwierdzenia zamówienia (Resend)**                             |              |    ✅    |
+| **Neon preview branches per PR**                                        |              |    ✅    |
+| Stripe (real payments)                                                  |              | (Faza 3) |
+| EN i18n                                                                 |              | (Faza 3) |
+| Sentry                                                                  |              | (Faza 3) |
+| Admin: upload obrazków przez UI (UploadThing)                           |              | (Faza 3) |
 
 ---
 
@@ -2644,6 +2688,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E1 — Inicjalizacja projektu (faza 0, część 1)
 
 **E1.1: Init Next.js project skeleton**
+
 - [ ] `npx create-next-app@latest deskgear` z opcjami: TS, Tailwind, App Router, src/, ESLint
 - [ ] Zweryfikować `package.json`: `next ^16.2`, `react ^19`, `typescript ^5.9`
 - [ ] Stworzyć `.nvmrc` z `22`
@@ -2652,24 +2697,28 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **Definition of Done**: `npm run dev` uruchamia stronę na localhost:3000
 
 **E1.2: Tailwind v4 config + globalne style**
+
 - [ ] Skonfigurować Tailwind v4 (CSS-first config w `globals.css`)
 - [ ] Dodać `prettier-plugin-tailwindcss` do `prettier.config.js`
 - [ ] Zweryfikować że `class="text-red-500"` działa
 - **DoD**: prosty komponent z Tailwind classes renderuje się poprawnie
 
 **E1.3: ESLint flat config**
+
 - [ ] `eslint.config.js` z `@typescript-eslint`, `eslint-config-next`, `eslint-plugin-tailwindcss`
 - [ ] Reguły: `no-unused-vars`, `no-explicit-any`, `consistent-type-imports`, `prefer-const`
 - [ ] Skrypty: `npm run lint`, `npm run lint:fix`
 - **DoD**: `npm run lint` zwraca 0 errors na świeżym projekcie
 
 **E1.4: Prettier**
+
 - [ ] `prettier.config.js` z `prettier-plugin-tailwindcss`
-- [ ] `.prettierignore` (node_modules, .next, .vercel, *.lock)
+- [ ] `.prettierignore` (node_modules, .next, .vercel, \*.lock)
 - [ ] Skrypty: `npm run format`, `npm run format:check`
 - **DoD**: `npm run format:check` zwraca 0 diff
 
 **E1.5: Husky + lint-staged + commitlint**
+
 - [ ] `npm i -D husky lint-staged @commitlint/cli @commitlint/config-conventional`
 - [ ] `npx husky init`
 - [ ] `.husky/pre-commit`: `npx lint-staged`
@@ -2680,6 +2729,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: próba commita z `xyz: invalid` jest odrzucona; commit `feature(config): add husky` przechodzi
 
 **E1.6: Env validation (`src/env.ts`)**
+
 - [ ] `npm i @t3-oss/env-nextjs zod`
 - [ ] `src/env.ts` z schemami `server`/`client`
 - [ ] Pierwsze zmienne: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `NODE_ENV`
@@ -2689,6 +2739,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E2 — Database i ORM
 
 **E2.1: Neon project + lokalny Postgres docker-compose**
+
 - [ ] Utworzyć konto Neon (jeśli brak), nowy projekt, region `eu-central-1`
 - [ ] Skopiować `DATABASE_URL` do `.env`
 - [ ] `docker-compose.yml` z `postgres:17` (alternatywa lokalna dla CI)
@@ -2696,14 +2747,15 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: `psql $DATABASE_URL -c "SELECT 1"` zwraca wynik
 
 **E2.2: Prisma init + Prisma 7 setup + base schema**
+
 - [ ] `npm i prisma @prisma/client @prisma/adapter-pg && npx prisma init`
 - [ ] **Prisma 7**: w `schema.prisma` ustaw `output = "../src/generated/prisma"` (wymagane w v7)
 - [ ] `src/lib/db/prisma.ts` używa `PrismaPg` adapter (Postgres adapter package):
   ```typescript
-  import { PrismaClient } from '@/generated/prisma/client';
-  import { PrismaPg } from '@prisma/adapter-pg';
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-  export const prisma = new PrismaClient({ adapter });
+  import { PrismaClient } from "@/generated/prisma/client"
+  import { PrismaPg } from "@prisma/adapter-pg"
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+  export const prisma = new PrismaClient({ adapter })
   ```
 - [ ] Skopiować model `User`, `Account` (opcjonalny pod OAuth w fazie 3), `VerificationToken` (Auth.js wymaga) do `schema.prisma` (patrz sekcja 5.5)
 - [ ] **Bez** modelu `Session` — używamy JWT strategy (ADR-001)
@@ -2713,21 +2765,25 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: `npx prisma studio` otwiera DB z tabelami `User`, `Account`, `VerificationToken`
 
 **E2.3: Prisma client singleton**
+
 - [ ] `src/lib/db/prisma.ts` z singletonem (chronionym przed multiple instances w dev)
 - **DoD**: import `prisma` działa w Server Action (test handler)
 
 **E2.4: Models — Category, Product, ProductImage, ProductVariant**
+
 - [ ] Dopisać do `schema.prisma` (patrz sekcja 5.5)
 - [ ] `npx prisma migrate dev --name add_product_models`
 - [ ] Indeksy z sekcji 5.4
 - **DoD**: migracja przechodzi, tabele widoczne w Studio
 
 **E2.5: Models — Cart, CartItem, Order, OrderItem, OrderStatusChange**
+
 - [ ] Dopisać do `schema.prisma`
 - [ ] `npx prisma migrate dev --name add_order_models`
 - **DoD**: pełen ERD z sekcji 5.2 odzwierciedlony w DB
 
 **E2.6: CHECK constraints**
+
 - [ ] Nowa migracja `add_check_constraints` z raw SQL (patrz sekcja 5.4)
 - [ ] `npx prisma migrate dev --name add_check_constraints --create-only`
 - [ ] Edycja `migration.sql` — dopisać `ALTER TABLE ... CHECK`
@@ -2735,6 +2791,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: `INSERT INTO "CartItem" (..., quantity) VALUES (..., 0)` odrzucony przez DB
 
 **E2.7: PasswordResetToken model**
+
 - [ ] Dopisać do `schema.prisma`
 - [ ] Migracja `add_password_reset_token`
 - **DoD**: model dostępny w Prisma Client
@@ -2742,6 +2799,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E3 — Auth (Auth.js v5 + JWT)
 
 **E3.1: Auth.js install + edge-safe config**
+
 - [ ] `npm i next-auth@5.0.0-beta.<X> @auth/prisma-adapter bcryptjs`
 - [ ] `npm i -D @types/bcryptjs`
 - [ ] **Pin wersji** w `package.json` (bez `^`) — Auth.js v5 nadal beta
@@ -2750,6 +2808,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: import `authConfig` w pliku edge-runtime nie rzuca błędu o "Prisma not edge-compatible"
 
 **E3.2: Auth.js pełna konfiguracja (Node runtime)**
+
 - [ ] `src/lib/auth/auth.ts` — pełna konfiguracja z `PrismaAdapter(prisma)`, `Credentials` provider, JWT strategy (7 dni)
 - [ ] `authorize()` callback waliduje credentials przez `loginSchema`, hashuje hasło przez `bcryptjs.compare`
 - [ ] Callbacki `jwt` i `session` — dorzucają `id` i `role` do tokenu/sesji
@@ -2758,17 +2817,20 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: GET `/api/auth/session` zwraca `null` gdy nie zalogowany
 
 **E3.3: Proxy / Middleware ochrony tras**
+
 - [ ] `src/proxy.ts` (Next.js 16) — używa **tylko `authConfig`** (edge-safe!)
 - [ ] Matcher: `['/admin/:path*', '/account/:path*']`
 - [ ] Redirect na `/login?callbackUrl=...` jeśli brak sesji (callback `authorized` zwraca `false`)
 - **DoD**: wejście na `/admin` bez sesji redirectuje na login
 
 **E3.4: `requireRole` helper**
+
 - [ ] `src/lib/auth/require-role.ts` — używa `auth()` z Auth.js v5
 - [ ] Unit test: `requireRole(['ADMIN'])` rzuca `AppError('UNAUTHORIZED')` bez sesji, `AppError('FORBIDDEN')` z złą rolą
 - **DoD**: 2 testy zielone, helper używany w Server Actions
 
 **E3.5: Admin seed**
+
 - [ ] W `prisma/seed.ts` upsert admina z `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` z env
 - [ ] Hash hasła przez `bcryptjs.hash(password, 12)` (Auth.js sam nie hashuje)
 - **DoD**: po `prisma db seed` w DB jest user z `role=ADMIN`, login działa
@@ -2776,28 +2838,33 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E4 — Lib core: errors, actions, validation, money, i18n
 
 **E4.1: AppError + AppErrorCode + AppErrors helpers**
+
 - [ ] `src/lib/errors/app-error.ts` (patrz 6.3)
 - [ ] Unit testy dla helperów (`AppErrors.emailExists()`)
 - **DoD**: testy zielone
 
 **E4.2: Zod error map (globalny customError)**
+
 - [ ] `src/lib/validation/zod-error-map.ts` (patrz 6.2)
 - [ ] Import w `src/instrumentation.ts` żeby uruchomił się na starcie
 - [ ] Unit testy `extractParams()` dla różnych issue codes
 - **DoD**: `z.string().min(8).safeParse("x").error.issues[0].message` to JSON z `code` i `params`
 
 **E4.3: ActionResult + toActionResult**
+
 - [ ] `src/lib/actions/action-result.ts` (types)
 - [ ] `src/lib/actions/to-action-result.ts` (handler)
 - [ ] Unit testy: ZodError → validation, AppError → business/auth, inny → server + traceId
 - **DoD**: 4 testy zielone
 
 **E4.4: Money types + schema + format**
+
 - [ ] `src/lib/money/types.ts`, `schema.ts`, `format.ts` (patrz 5.6)
 - [ ] Unit testy `formatMoney` dla edge cases (zero, duże liczby)
 - **DoD**: `formatMoney("249.00")` → `"249,00 zł"`
 
 **E4.5: i18n collector + t()**
+
 - [ ] Struktura `src/i18n/pl/common/` z `errors.json`, `nav.json`, `forms.json`
 - [ ] `src/i18n/messages.ts` collector (patrz 11.1)
 - [ ] `src/i18n/t.ts` helper
@@ -2805,6 +2872,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: `t('errors.too_small.string', { minimum: 8 })` → "Wymagane co najmniej 8 znaków"
 
 **E4.6: resolveErrorMessage z trójwarstwową kaskadą**
+
 - [ ] `src/lib/validation/resolve-error-message.ts` (patrz 6.7)
 - [ ] Unit testy: override per pole > schema-level > global > fallback > code
 - **DoD**: 5 testów (po jednym dla każdego poziomu kaskady) zielone
@@ -2812,16 +2880,19 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E5 — Wrappery RHF + komponenty UI
 
 **E5.1: shadcn/ui init**
+
 - [ ] `npx shadcn@latest init` (style, color scheme)
 - [ ] Dodać komponenty: `Input`, `Label`, `Button`, `Form` (jako baza dla wrapperów)
 - **DoD**: `<Button>Test</Button>` renderuje się
 
 **E5.2: RHFTextField**
+
 - [ ] `src/components/form/rhf-text-field.tsx` (patrz 10.2)
 - [ ] Component testy: renderowanie, error z resolveErrorMessage, override per pole, aria-invalid
 - **DoD**: 4 testy zielone
 
 **E5.3: RHFPasswordField**
+
 - [ ] Wraper RHFTextField + toggle visibility (oko)
 - [ ] Strength meter (opcjonalnie — może faza 2)
 - [ ] Component testy
@@ -2830,6 +2901,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E6 — Login + Register + Reset Password
 
 **E6.1: Login form + Server Action**
+
 - [ ] Schema Zod `loginSchema` w `features/auth/schemas.ts`
 - [ ] Server Action `loginAction`
 - [ ] Strona `/login` z RHF form, RHFTextField, RHFPasswordField
@@ -2837,6 +2909,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: można się zalogować jako admin (z seeda), redirect na `/account`
 
 **E6.2: Register form + Server Action**
+
 - [ ] Schema `registerSchema` z walidacją siły hasła
 - [ ] Server Action `registerAction`
 - [ ] Strona `/register`
@@ -2844,6 +2917,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: można zarejestrować nowego usera, auto-login
 
 **E6.3: Forgot password**
+
 - [ ] Schema `forgotPasswordSchema`
 - [ ] Server Action `requestPasswordResetAction` (zawsze success)
 - [ ] Strona `/forgot-password`
@@ -2851,6 +2925,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: po submit zawsze "Sprawdź skrzynkę" niezależnie od istnienia emaila
 
 **E6.4: Resend integration**
+
 - [ ] `npm i resend`
 - [ ] `src/lib/email/resend.ts` client
 - [ ] `src/lib/email/templates/reset-password.tsx` (React Email)
@@ -2859,6 +2934,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: w dev console.log link; w prod mail dochodzi (test ręczny)
 
 **E6.5: Reset password**
+
 - [ ] Schema `resetPasswordSchema` (token + nowe hasło)
 - [ ] Server Action `resetPasswordAction`
 - [ ] Strona `/reset-password?token=...`
@@ -2868,17 +2944,20 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E7 — Obrazki + Seed
 
 **E7.1: Pliki obrazków w `public/products/`**
+
 - [ ] Skopiować ~40-60 obrazków produktowych do `public/products/`
 - [ ] Konwencja nazewnictwa: `{category}-{slug}-{variant}.webp`
 - [ ] README z listą plików
 - **DoD**: obrazki dostępne pod `http://localhost:3000/products/keyboard-tkl-black-front.webp`
 
 **E7.2: Seed kategorii**
+
 - [ ] Hierarchia: peripherals → keyboards/mice/headphones/microphones, displays → monitors, storage → drives/cables/accessories, workspace → chairs/desk-accessories, apparel → t-shirts (slugi po angielsku — ADR-014)
 - [ ] Upsert by slug (idempotentne)
 - **DoD**: 10-15 kategorii w DB po `db seed`
 
 **E7.3: Seed produktów (40-60 sztuk)**
+
 - [ ] Generator faker per kategoria z różnymi atrybutami wariantu
 - [ ] Co najmniej 5 produktów per kategoria
 - [ ] 2-6 wariantów per produkt
@@ -2889,6 +2968,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### E8 — Sklep publiczny (PLP, PDP, Cart)
 
 **E8.1: productService.findMany + schema filtrów**
+
 - [ ] `listProductsSchema` (Zod): kategoria, brand, cena (min/max), strona, sort — używany w `page.tsx` do parsowania `searchParams`
 - [ ] `productRepository.findMany(filters)` — Prisma query z paginacją i sortowaniem
 - [ ] `productService.findMany(filters)` — orchestracja repo (mapowanie Decimal → string, dołączenie głównego obrazka, snapshot ceny "od")
@@ -2897,6 +2977,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: `productService.findMany({})` zwraca paginowane wyniki; testy zielone
 
 **E8.2: PLP `/shop` — RSC z bezpośrednim wywołaniem service'u**
+
 - [ ] `src/app/(shop)/shop/page.tsx` — RSC parsuje `searchParams` przez `listProductsSchema`, wywołuje `productService.findMany()`
 - [ ] URL params: `?category=keyboards&brand=Keychron&page=2&sort=price-asc`
 - [ ] Grid produktów z `ProductCard`
@@ -2904,18 +2985,21 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: lista wyświetla się z filtrami z URL, brak Server Action w tym pliku
 
 **E8.3: Sidebar filtrów (client component)**
+
 - [ ] Filtry: kategoria (multi-select), brand (multi-select), price range, in-stock toggle
 - [ ] Aktualizacja URL przez `useRouter().replace()` z `nuqs` lub własną logiką
 - [ ] Reset filters button
 - **DoD**: filtry zmieniają URL, RSC re-renders, lista produktów się aktualizuje
 
 **E8.4: ProductCard component**
+
 - [ ] Wyświetla: główne zdjęcie (Next Image), nazwa, brand, cena od (min z wariantów), badge "Bestseller" jeśli `isFeatured`
 - [ ] Link do PDP `/shop/[slug]`
 - [ ] Component test (renderowanie, klik)
 - **DoD**: testy zielone
 
 **E8.5: PDP `/shop/[slug]` — RSC**
+
 - [ ] `productRepository.findBySlug(slug)` (zwraca `Product | null`)
 - [ ] `productService.getBySlug(slug)` — wywołuje `notFound()` z `next/navigation` gdy brak lub `!isActive`
 - [ ] `src/app/(shop)/shop/[slug]/page.tsx` — RSC bez try/catch, tylko `await productService.getBySlug(slug)`
@@ -2926,6 +3010,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: można otworzyć dowolny produkt z PLP; nieistniejący slug pokazuje `not-found.tsx`; testy zielone
 
 **E8.6: Variant picker (client component)**
+
 - [ ] `useVariantSelection` hook (przyjmuje warianty jako prop z RSC)
 - [ ] UI dostosowany do `categoryType` (np. rozmiar dla apparel, switch/layout dla keyboards)
 - [ ] Disabled state dla niedostępnych kombinacji (stock = 0)
@@ -2933,6 +3018,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: zmiana wariantu zmienia cenę i obrazek (jeśli wariant ma osobne zdjęcie)
 
 **E8.7: Cart Server Actions (TYLKO mutacje)**
+
 - [ ] `addToCartAction({ variantId, quantity })`
 - [ ] `updateCartItemAction({ itemId, quantity })`
 - [ ] `removeFromCartAction({ itemId })`
@@ -2942,6 +3028,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: 8+ testów zielonych; reads cartu z RSC bez SA
 
 **E8.8: Cart UI**
+
 - [ ] Strona `/cart` — RSC wywołuje `cartService.getCart(ctx)` bezpośrednio
 - [ ] Lista items, change quantity (+/-), remove → te akcje wywołują SA (`updateCartItemAction`, `removeFromCartAction`)
 - [ ] `revalidatePath('/cart')` w SA zapewnia odświeżenie listy po mutacji
@@ -2950,6 +3037,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - **DoD**: cart end-to-end działa dla guesta i zalogowanego
 
 **E8.9: Cart merge on login**
+
 - [ ] Hook w Auth.js `signIn` callback (lub event `signIn`) → `cartService.mergeGuestIntoUser(guestToken, userId)`
 - [ ] Wyczyszczenie cookie `__dg_guest_cart`
 - [ ] Integration test: guest dodaje 2 items, login, sprawdza że są w jego koszyku
@@ -2958,6 +3046,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 #### Wrappery RHF dopisywane w trakcie E8
 
 W trakcie implementacji formularzy w E8 i wcześniej dochodzą:
+
 - [ ] `RHFCheckbox` (filtry PLP, register terms)
 - [ ] `RHFTextarea` (review, faza 2)
 - [ ] `RHFSelect` (sortowanie PLP, kraj w adresie)
@@ -3016,24 +3105,28 @@ Lista decyzji wraz z odrzuconymi alternatywami. **ADR-y są append-only** — gd
 **Decyzja**: Auth.js v5 (pinned do konkretnej wersji `5.0.0-beta.X`) z JWT sessions (`session.strategy: 'jwt'`), Credentials provider, Prisma adapter.
 
 **Powody**:
+
 - Wybór edukacyjny — Auth.js + JWT to **najczęstszy pattern w tutorialach Next.js**, chcę go opanować w pierwszym projekcie
 - Stateless sessions = brak tabeli `Session`, edge middleware działa OOTB bez DB
 - 80+ OAuth providers OOTB pod fazę 3 (Google, GitHub)
 - Auth.js v5 nadal jest aktywnie utrzymywany (przez zespół Better Auth od końca 2025, security i critical fixes)
 
 **Świadome koszty** (sekcja 7.5):
+
 - Brak immediate logout / role change (czeka do TTL 7 dni lub re-login)
 - Brak "wyloguj ze wszystkich urządzeń"
 - `session callback` w v5 ma znany problem (nie wywoływany przy każdym request)
 - Beta tag — mitigacja przez pin wersji
 
 **Odrzucone**:
+
 - **Better Auth** — bardziej dojrzała technologia dla DB sessions, ale to pattern który zrobię w **kolejnym projekcie** (świadomie ćwiczę różne podejścia)
 - **DB sessions w Auth.js** (`session.strategy: 'database'`) — możliwe, ale traci się benefit "stateless" który jest głównym powodem wyboru tego stacka edukacyjnie
 - Clerk — vendor lock-in
 - WorkOS — overkill dla B2C
 
-**Konsekwencje**: 
+**Konsekwencje**:
+
 - Tabela `User` w DB (przez Prisma adapter), opcjonalnie `Account` (dla OAuth w fazie 3) i `VerificationToken` (nie używamy w fazie 1)
 - Tabela `Session` **nie istnieje** (JWT, nie DB sessions)
 - Reset hasła własna implementacja (tabela `PasswordResetToken`) — Auth.js nie zarządza tym sam
@@ -3100,19 +3193,21 @@ Lista decyzji wraz z odrzuconymi alternatywami. **ADR-y są append-only** — gd
 **Status**: Accepted
 **Decyzja**: `ProductVariant.attributes` jako kolumna `Json @db.JsonB`. Walidacja per-kategoria w Zod przez `z.discriminatedUnion('categoryType', [...])`.
 **Odrzucone**:
+
 - Osobne kolumny per atrybut — eksplozja nullable kolumn
 - EAV — overengineering, słabe queries
 - Osobne tabele per typ wariantu — eksplozja modeli
-**Konsekwencje**: GIN index na JSONB w fazie 2 jeśli filtrowanie po atrybutach stanie się hotspotem.
+  **Konsekwencje**: GIN index na JSONB w fazie 2 jeśli filtrowanie po atrybutach stanie się hotspotem.
 
 ### ADR-013: Server Actions tylko dla mutacji, reads przez RSC
 
 **Status**: Accepted
 **Decyzja**: Server Actions (`'use server'`) używamy **wyłącznie do mutacji** (write). Reads idą przez Server Components wywołujące `service` bezpośrednio. Service jest wspólnym wejściem do warstwy biznesowej dla obu ścieżek.
 **Odrzucone**:
+
 - SA dla wszystkiego (read + write) — rozważane jako "edukacyjne ujednolicenie mentalne", ostatecznie odrzucone bo traci się natywne cache Next.js, prefetch, semantykę GET, plus wymaga to opakowywania reads w `ActionResult<T>` zamiast czystego try/catch + `error.tsx`.
 - API Routes / Route Handlers dla reads — niepotrzebny dodatkowy hop HTTP gdy RSC mogą wywołać service bezpośrednio.
-**Konsekwencje**: dwie ścieżki w prezentacji (read przez RSC + service, write przez SA + service), ale **jedna warstwa biznesowa** (service). Błędy obsługiwane różnie: reads → `throw` → `error.tsx` / `notFound()`; writes → `ActionResult<T>` → `setError` / toast.
+  **Konsekwencje**: dwie ścieżki w prezentacji (read przez RSC + service, write przez SA + service), ale **jedna warstwa biznesowa** (service). Błędy obsługiwane różnie: reads → `throw` → `error.tsx` / `notFound()`; writes → `ActionResult<T>` → `setError` / toast.
 
 ### ADR-014: Slugi kategorii i kodów po angielsku
 
@@ -3139,15 +3234,18 @@ Lista decyzji wraz z odrzuconymi alternatywami. **ADR-y są append-only** — gd
 
 **Status**: Accepted
 **Decyzja**: service'y wywołują `notFound()` z `next/navigation` gdy rekord jest wymagany i go brakuje. RSC są chude — bez try/catch, tylko `await service.getBy*(...)`. Konwencja nazewnicza:
+
 - `get*` — rzuca `notFound()` gdy brak (domyślny wariant dla RSC)
 - `tryFind*` — zwraca `T | null` (dla miejsc gdzie brak jest prawidłowym stanem UI, np. rekomendacje)
 - `findMany`, `findFirst` — listy, mogą zwracać puste
 
 **Odrzucone**:
+
 - try/catch w każdym RSC z `AppError('XXX_NOT_FOUND')` — rozsmarowane error handling, łamie DRY, każde page wymaga boilerplate
 - Service zwracający zawsze `T | null`, RSC sam decyduje czy `notFound()` — szybko zapominasz zrobić if/null check, łatwo o `Cannot read property 'name' of null`
 
 **Konsekwencje**:
+
 - Service ma "magiczny" side-effect (specjalny error który Next.js przechwytuje) — mitigacja przez konwencję nazewnictwa `get*`
 - Testowanie wymaga mocku `next/navigation` (sekcja 3.3)
 - `AppError` używamy **tylko** dla błędów biznesowych (stock, auth), nie dla "rekord nie istnieje"
@@ -3167,15 +3265,15 @@ Lista decyzji wraz z odrzuconymi alternatywami. **ADR-y są append-only** — gd
 
 ### Ryzyka
 
-| Ryzyko | Mitygacja |
-|--------|-----------|
-| Solo dev → burn out na boilerplate | Generatory (Plop?) w razie potrzeby |
-| Złe wczesne decyzje w error structure → trudny refactor | Sekcja 6 świadomie szczegółowa, testy chronią |
-| Wydajność PLP z dużą liczbą wariantów | Indeksy DB; `unstable_cache`/`fetch` cache na poziomie repo w fazie 2 jeśli pomiar pokaże potrzebę |
-| Race condition przy decrement stock | Transakcja Prismy + `SELECT FOR UPDATE` w `orderService.placeOrder` |
-| Email-less reset hasła w fazie 1 | Resend od fazy 1 — ADR-001 |
-| Filtrowanie po `attributes` JSONB wolne | GIN index na konkretne klucze w fazie 2 |
-| Eksplozja kategorii i typów wariantów | Discriminated union w Zod (ADR-012) — dodanie kategorii = 1 schema + 1 case |
+| Ryzyko                                                  | Mitygacja                                                                                          |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Solo dev → burn out na boilerplate                      | Generatory (Plop?) w razie potrzeby                                                                |
+| Złe wczesne decyzje w error structure → trudny refactor | Sekcja 6 świadomie szczegółowa, testy chronią                                                      |
+| Wydajność PLP z dużą liczbą wariantów                   | Indeksy DB; `unstable_cache`/`fetch` cache na poziomie repo w fazie 2 jeśli pomiar pokaże potrzebę |
+| Race condition przy decrement stock                     | Transakcja Prismy + `SELECT FOR UPDATE` w `orderService.placeOrder`                                |
+| Email-less reset hasła w fazie 1                        | Resend od fazy 1 — ADR-001                                                                         |
+| Filtrowanie po `attributes` JSONB wolne                 | GIN index na konkretne klucze w fazie 2                                                            |
+| Eksplozja kategorii i typów wariantów                   | Discriminated union w Zod (ADR-012) — dodanie kategorii = 1 schema + 1 case                        |
 
 ---
 
@@ -3227,31 +3325,31 @@ Lista decyzji wraz z odrzuconymi alternatywami. **ADR-y są append-only** — gd
 
 Skróty i terminy używane w tym dokumencie:
 
-| Skrót | Pełna nazwa | Co oznacza |
-|-------|-------------|-----------|
-| **PLP** | Product Listing Page | Strona z listą produktów (`/shop`, kategorie) |
-| **PDP** | Product Detail Page | Strona pojedynczego produktu (`/shop/[slug]`) |
-| **SKU** | Stock Keeping Unit | Unikalny kod wariantu, np. `DG-KB-TKL-BROWN-BLACK` |
-| **RSC** | React Server Component | Komponent renderowany na serwerze |
-| **SA** | Server Action | Funkcja `'use server'` wywoływana z klienta |
-| **SSR** | Server-Side Rendering | Renderowanie HTML na serwerze (różne od RSC) |
-| **CSR** | Client-Side Rendering | Renderowanie po stronie klienta |
-| **ISR** | Incremental Static Regeneration | Cache Next.js z regeneracją w tle |
-| **MVP** | Minimum Viable Product | Najmniejsza wersja produktu pokrywająca core scope |
-| **ADR** | Architecture Decision Record | Udokumentowana decyzja architektoniczna |
-| **TTFB** | Time To First Byte | Metryka wydajności |
-| **CTA** | Call To Action | Główny przycisk akcji |
-| **CRUD** | Create / Read / Update / Delete | Podstawowe operacje na danych |
-| **DTO** | Data Transfer Object | Obiekt do przesyłania danych między warstwami |
-| **YAGNI** | You Aren't Gonna Need It | Zasada: nie budujemy "na zapas" |
-| **RHF** | React Hook Form | Biblioteka do formularzy |
-| **MFA** | Multi-Factor Authentication | Uwierzytelnianie wieloskładnikowe (faza 3+) |
-| **MSW** | Mock Service Worker | Biblioteka do mockowania HTTP w testach |
-| **VAT** | Value Added Tax | Podatek od towarów i usług (PL: faktura VAT) |
-| **CQRS** | Command Query Responsibility Segregation | Wzorzec rozdzielenia reads/writes (nie używany) |
-| **EAV** | Entity-Attribute-Value | Wzorzec przechowywania dynamicznych atrybutów (odrzucony — ADR-012) |
-| **FTS** | Full-Text Search | Wyszukiwanie pełnotekstowe (Postgres `tsvector`) |
-| **GIN** | Generalized Inverted Index | Typ indeksu w PostgreSQL dla JSONB, FTS |
-| **ERD** | Entity-Relationship Diagram | Diagram relacji między encjami w bazie |
-| **DoD** | Definition of Done | Kryteria zakończenia zadania |
-| **JSONB** | JSON Binary | Typ Postgres — JSON binarny, indeksowalny, dedup'owany |
+| Skrót     | Pełna nazwa                              | Co oznacza                                                          |
+| --------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| **PLP**   | Product Listing Page                     | Strona z listą produktów (`/shop`, kategorie)                       |
+| **PDP**   | Product Detail Page                      | Strona pojedynczego produktu (`/shop/[slug]`)                       |
+| **SKU**   | Stock Keeping Unit                       | Unikalny kod wariantu, np. `DG-KB-TKL-BROWN-BLACK`                  |
+| **RSC**   | React Server Component                   | Komponent renderowany na serwerze                                   |
+| **SA**    | Server Action                            | Funkcja `'use server'` wywoływana z klienta                         |
+| **SSR**   | Server-Side Rendering                    | Renderowanie HTML na serwerze (różne od RSC)                        |
+| **CSR**   | Client-Side Rendering                    | Renderowanie po stronie klienta                                     |
+| **ISR**   | Incremental Static Regeneration          | Cache Next.js z regeneracją w tle                                   |
+| **MVP**   | Minimum Viable Product                   | Najmniejsza wersja produktu pokrywająca core scope                  |
+| **ADR**   | Architecture Decision Record             | Udokumentowana decyzja architektoniczna                             |
+| **TTFB**  | Time To First Byte                       | Metryka wydajności                                                  |
+| **CTA**   | Call To Action                           | Główny przycisk akcji                                               |
+| **CRUD**  | Create / Read / Update / Delete          | Podstawowe operacje na danych                                       |
+| **DTO**   | Data Transfer Object                     | Obiekt do przesyłania danych między warstwami                       |
+| **YAGNI** | You Aren't Gonna Need It                 | Zasada: nie budujemy "na zapas"                                     |
+| **RHF**   | React Hook Form                          | Biblioteka do formularzy                                            |
+| **MFA**   | Multi-Factor Authentication              | Uwierzytelnianie wieloskładnikowe (faza 3+)                         |
+| **MSW**   | Mock Service Worker                      | Biblioteka do mockowania HTTP w testach                             |
+| **VAT**   | Value Added Tax                          | Podatek od towarów i usług (PL: faktura VAT)                        |
+| **CQRS**  | Command Query Responsibility Segregation | Wzorzec rozdzielenia reads/writes (nie używany)                     |
+| **EAV**   | Entity-Attribute-Value                   | Wzorzec przechowywania dynamicznych atrybutów (odrzucony — ADR-012) |
+| **FTS**   | Full-Text Search                         | Wyszukiwanie pełnotekstowe (Postgres `tsvector`)                    |
+| **GIN**   | Generalized Inverted Index               | Typ indeksu w PostgreSQL dla JSONB, FTS                             |
+| **ERD**   | Entity-Relationship Diagram              | Diagram relacji między encjami w bazie                              |
+| **DoD**   | Definition of Done                       | Kryteria zakończenia zadania                                        |
+| **JSONB** | JSON Binary                              | Typ Postgres — JSON binarny, indeksowalny, dedup'owany              |

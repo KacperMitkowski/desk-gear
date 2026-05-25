@@ -36,7 +36,7 @@ body:
         Opisz co konkretnie robimy oraz **dlaczego teraz**. Większość chore tasków jest tak naprawdę technical debt — uzasadnij dlaczego warto poświęcić na to czas.
       placeholder: |
         Aktualizacja Prisma 6 → 7.
-        
+
         **Dlaczego teraz:**
         - Prisma 7 wymusza nowy adapter pattern (PrismaPg) — i tak będziemy musieli przejść
         - Im później, tym więcej kodu do migracji
@@ -80,7 +80,7 @@ body:
         **Ryzyka:**
         - Breaking change w Prisma 7 API — może być potrzebny rollback
         - Możliwe zmiany w zachowaniu Prisma Studio
-        
+
         **Out of scope:**
         - Migracja na inny ORM (Drizzle) — to osobna decyzja
         - Zmiana struktury bazy danych
