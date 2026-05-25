@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Zaproponuj nową funkcję lub zmianę istniejącej funkcji
-        
+
         > [!TIP]
         > Potrzebujesz pomocy? Przewiń na sam dół - tam są podpowiedzi jak opisać zgłoszenie.
 
@@ -25,7 +25,7 @@ body:
         - Brak MFA zwiększa ryzyko przejęcia kont oraz blokuje możliwość sprzedaży produktu klientom enterprise.
     validations:
       required: true
-      
+
   - type: textarea
     id: solution
     attributes:
@@ -39,7 +39,7 @@ body:
         - MFA wymagane przy logowaniu i wrażliwych operacjach
     validations:
       required: true
-      
+
   - type: textarea
     id: acceptance
     attributes:
@@ -53,7 +53,7 @@ body:
         - zdarzenia MFA są rejestrowane w audit logu
     validations:
       required: true
-      
+
   - type: textarea
     id: note
     attributes:
@@ -69,18 +69,18 @@ body:
     attributes:
       value: |
         **ℹ️ Jak skutecznie opisać pomysł? – Szybkie wskazówki do dobrego PRD**
-        
-        **Skup się na „Po co?”, a nie „Jak?”**  
+
+        **Skup się na „Po co?", a nie „Jak?"**
         Nie musisz znać się na technologii. Opisz problem, z którym mierzy się klient, i jaki efekt chce osiągnąć.
-       
-        **Pisz językiem korzyści**  
+
+        **Pisz językiem korzyści**
         Wyjaśnij, jaki problem rozwiązuje klientowi, a może nam pomoże zwiększyć atrakcyjność systemu podczas sprzedaży.
-        
-        **Kryteria akceptacji to Twoja „lista zakupów”**  
-        Wypunktuj proste zdania typu: „Użytkownik widzi przycisk X”, „Po kliknięciu dzieje się Y”. To pozwoli testerom sprawdzić, czy funkcja działa tak, jak chciałeś.
-        
-        **Określ granice**  
-        Jeśli pomysł jest duży, zaznacz, co jest absolutnym priorytetem („must-have”), a co można dodać później.
-        
-        **Dodaj kontekst**  
-        Jeśli klient przysłał zrzut ekranu lub link do podobnego rozwiązania u konkurencji, koniecznie wklej go w sekcji „Uwagi”.
+
+        **Kryteria akceptacji to Twoja „lista zakupów"**
+        Wypunktuj proste zdania typu: „Użytkownik widzi przycisk X", „Po kliknięciu dzieje się Y". To pozwoli testerom sprawdzić, czy funkcja działa tak, jak chciałeś.
+
+        **Określ granice**
+        Jeśli pomysł jest duży, zaznacz, co jest absolutnym priorytetem („must-have"), a co można dodać później.
+
+        **Dodaj kontekst**
+        Jeśli klient przysłał zrzut ekranu lub link do podobnego rozwiązania u konkurencji, koniecznie wklej go w sekcji „Uwagi".

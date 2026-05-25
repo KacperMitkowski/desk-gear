@@ -1,5 +1,18 @@
+# Konfiguracja issue templates dla DeskGear
+# https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+
+# Ukryj opcję "Blank issue" — wszystkie issues muszą używać templatek.
+# Zmień na true jeśli chcesz zachować "Blank issue" jako fallback.
 blank_issues_enabled: false
-contact_links:
-  - name: 💬 Pytania ogólne
-    url: https://github.com/KacperMitkowski/desk-gear/discussions
-    about: Pytania, dyskusje, propozycje — nie konkretne taski
+
+# Opcjonalne linki na ekranie wyboru templatki.
+# Zakomentowane bo to solo projekt — jeśli kiedyś dorzucisz Discussions albo Discord, odkomentuj.
+#
+# contact_links:
+#   - name: 💬 Pytania i dyskusje
+#     url: https://github.com/KacperMitkowski/desk-gear/discussions
+#     about: Pytania ogólne, propozycje, dyskusje — nie konkretne taski.
+#
+#   - name: 📚 Dokumentacja
+#     url: https://github.com/KacperMitkowski/desk-gear/blob/main/ARCHITECTURE.md
+#     about: Zanim zgłosisz issue, sprawdź czy odpowiedź nie jest w ARCHITECTURE.md

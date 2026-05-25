@@ -1,0 +1,88 @@
+name: "🔧 Chore / Refactor"
+description: "[chore] Zmiana techniczna bez wpływu na funkcjonalność (refactor, dependencies, infra, dokumentacja)"
+labels: ["type:chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Zmiana techniczna bez bezpośredniego wpływu na funkcjonalność użytkownika.
+        Refactory, aktualizacje zależności, zmiany infrastruktury, dokumentacja.
+
+        > [!TIP]
+        > Jeśli to ma user-facing impact (nawet pośredni — np. lepsza performance) → użyj templatki Feature Request.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 📂 Kategoria
+      description: Co konkretnie robimy?
+      options:
+        - Refactor — zmiana struktury kodu bez zmiany zachowania
+        - Dependencies — aktualizacja bibliotek
+        - Infrastructure — CI/CD, deployment, env
+        - Documentation — README, ADR, ARCHITECTURE.md
+        - DX — narzędzia, skrypty, developer experience
+        - Configuration — eslint, prettier, tsconfig, husky
+        - Cleanup — usuwanie martwego kodu, niepotrzebnych plików
+        - Other — inne
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 🎯 Co i dlaczego?
+      description: |
+        Opisz co konkretnie robimy oraz **dlaczego teraz**. Większość chore tasków jest tak naprawdę technical debt — uzasadnij dlaczego warto poświęcić na to czas.
+      placeholder: |
+        Aktualizacja Prisma 6 → 7.
+        
+        **Dlaczego teraz:**
+        - Prisma 7 wymusza nowy adapter pattern (PrismaPg) — i tak będziemy musieli przejść
+        - Im później, tym więcej kodu do migracji
+        - Faza 0 = idealne okno (brak features biznesowych do regresji)
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 🔧 Zakres zmian
+      description: Lista konkretnych zmian/plików/modułów które będą tknięte.
+      placeholder: |
+        - `package.json` — bump Prisma do 7.0.x, dodanie `@prisma/adapter-pg`
+        - `schema.prisma` — dodanie `output = "../src/generated/prisma"`
+        - `src/lib/db/prisma.ts` — refactor na adapter pattern
+        - Wszystkie importy Prisma Client zaktualizowane (PrismaClient z `@/generated/prisma/client`)
+        - `prisma/seed.ts` — dodanie `import 'dotenv/config'` na górze
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: ✅ Definition of Done
+      description: Jak weryfikujemy że task jest skończony?
+      placeholder: |
+        - Wszystkie joby CI zielone (lint, typecheck, build, test)
+        - `npx prisma migrate dev` działa bez warningów
+        - Smoke test: można odpytać DB z RSC
+        - Brak deprecation warnings w buildzie
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: ⚠️ Ryzyka i out-of-scope
+      description: Co może pójść nie tak? Czego ten task NIE obejmuje?
+      placeholder: |
+        **Ryzyka:**
+        - Breaking change w Prisma 7 API — może być potrzebny rollback
+        - Możliwe zmiany w zachowaniu Prisma Studio
+        
+        **Out of scope:**
+        - Migracja na inny ORM (Drizzle) — to osobna decyzja
+        - Zmiana struktury bazy danych
+    validations:
+      required: false

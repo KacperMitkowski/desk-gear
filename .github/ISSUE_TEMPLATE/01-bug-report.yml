@@ -1,90 +1,85 @@
-name: "🐛 Bug report"
-description: "[fix] Zgłoś błąd w działającym systemie produkcyjnym"
-type: "Bug"
+name: "🐛 Bug Report"
+description: "[bug] Zgłoś błąd w działaniu systemu"
+labels: ["type:bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Zgłoś błąd w działającym systemie produkcyjnym
-        
-        > [!IMPORTANT]
-        > Pamiętaj, że zgłoszenie błędu **dotyczy tylko instancji produkcyjnej**, a więc nie może pochodzić z developa!
+        Zgłoś błąd w działaniu systemu.
 
         > [!TIP]
-        > Potrzebujesz pomocy? Przewiń na sam dół - tam są podpowiedzi jak opisać zgłoszenie.
-        
-  - type: input
-    id: instance
-    attributes:
-      label: 🌐 Instancja
-      description: |
-        Nazwa instancji widoczna jako subdomena w adresie URL przeglądarki
-      placeholder: staging
-    validations:
-      required: true
-      
+        > Im więcej kontekstu (kroki reprodukcji, screen, console log), tym szybciej naprawimy.
+
   - type: textarea
     id: description
     attributes:
-      label: 🧠 Opis problemu
-      description: Opisz, co nie działa, gdzie występuje błąd i co dzieje się obecnie.
+      label: 🐞 Opis błędu
+      description: Krótko opisz co się dzieje i czego oczekiwałeś.
       placeholder: |
-        Podczas zapisywania ustawień profilu użytkownika system zapisuje niepoprawną strefę czasową, co powoduje błędne wyświetlanie dat i godzin.
+        Po kliknięciu "Dodaj do koszyka" na PDP, koszyk się nie aktualizuje — badge w headerze pokazuje stary stan.
+        Oczekiwane: badge powinien się natychmiast zwiększyć o 1.
+    validations:
+      required: true
 
-        System zapisuje inną strefę czasową (UTC), mimo poprawnego wyboru w formularzu.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 🔬 Kroki reprodukcji
+      description: Lista kroków, które prowadzą do błędu. Im bardziej minimalna, tym lepiej.
+      placeholder: |
+        1. Otwórz `/shop`
+        2. Kliknij dowolny produkt → przejdź do PDP
+        3. Wybierz wariant
+        4. Kliknij "Dodaj do koszyka"
+        5. Zwróć uwagę na badge w headerze — nie zmienia się
     validations:
       required: true
-      
+
   - type: textarea
-    id: steps
+    id: environment
     attributes:
-      label: 🔁 Kroki do odtworzenia
-      description: Krok po kroku opisz, jak odtworzyć błąd.
+      label: 🌐 Środowisko
+      description: Gdzie wystąpił błąd? (prod / preview / lokalnie + przeglądarka, OS)
       placeholder: |
-        1. Zaloguj się jako użytkownik
-        2. Przejdź do edycji profilu
-        3. Ustaw strefę czasową „Europe/Warsaw”
-        4. Zapisz zmiany
-        5. Odśwież stronę
+        - Środowisko: production (vercel.app)
+        - Przeglądarka: Chrome 137 / Firefox 142 / Safari 18
+        - OS: macOS Sonoma / Windows 11 / Ubuntu 24
+        - Czy odtworzone w innej przeglądarce: tak/nie
     validations:
-      required: true
-      
+      required: false
+
   - type: textarea
-    id: expected
+    id: logs
     attributes:
-      label: ✅ Kryteria akceptacji
-      description: Jednoznaczne warunki, które muszą być spełnione, aby uznać fix za poprawnie ukończony.
+      label: 📋 Logi, screenshoty, console errors
+      description: Wklej errory z konsoli przeglądarki, screen, link do nagrania.
       placeholder: |
-        Wybrana strefa czasowa powinna zostać poprawnie zapisana i wyświetlana po ponownym załadowaniu profilu.
+        Console error:
+        ```
+        TypeError: Cannot read property 'itemCount' of undefined
+            at Header.tsx:42
+        ```
+
+        Screen: [załącz]
     validations:
-      required: true
-      
+      required: false
+
   - type: textarea
-    id: notes
+    id: impact
     attributes:
-      label: 🧩 Dodatkowe informacje
-      description: Wpisz dodatkowe informacje pozwalające na sprawniejszy proces naprawy
+      label: 💥 Wpływ na użytkowników
+      description: Czy to blokuje główny flow? Ilu użytkowników dotyczy?
       placeholder: |
-        - środowisko gdzie występuje problem -> Chrome 12
-        - wpływ błędu na użytkowników lub system -> błędne daty w raportach
-        - logi, screenshoty lub linki, jeśli dostępne -> screenshot błędnej strefy
+        - Blokuje zakup (krytyczne) / utrudnia (średnie) / drobna niedogodność (niskie)
+        - Wszyscy użytkownicy / tylko zalogowani / tylko z konkretną przeglądarką
+    validations:
+      required: false
 
   - type: markdown
     attributes:
       value: |
-        **ℹ️ Jak skutecznie zgłosić błąd? – Szybkie wskazówki**
-        
-        **Sprawdź adres URL**  
-        Upewnij się, że problem występuje na produkcji. W polu „Instancja” wpisz nazwę klienta lub subdomenę, na której widoczny jest błąd.
+        **ℹ️ Jak skutecznie zgłosić bug?**
 
-        **Bądź precyzyjny w krokach**  
-        Opisz drogę do błędu tak, jakbyś prowadził kogoś za rękę. Każde kliknięcie ma znaczenie – programista musi umieć „zepsuć” system w ten sam sposób.
-
-        **Oczekiwane vs. Rzeczywiste**  
-        Jasno oddziel to, co się stało (np. „widzę biały ekran”), od tego, co powinno się stać (np. „powinien wyskoczyć komunikat o zapisie”).
-
-        **Kontekst to klucz**  
-        Napisz, czy problem dotyczy tylko jednej przeglądarki (np. Safari) lub konkretnego użytkownika. To drastycznie przyspiesza diagnozę.
-
-        **Dołącz dowody**  
-        Zrzut ekranu (nawet zrobiony telefonem) lub nagranie wideo często mówi więcej niż sto słów opisu.
+        **Minimalne reprodukcyjne kroki** — usuń wszystko co nie jest potrzebne do wywołania błędu.
+        **Console + Network tab** — to pierwsze miejsce gdzie szukamy źródła problemu.
+        **Wpływ** — pomoże nam ocenić priorytet (krytyczne vs nice-to-have).
