@@ -1,1 +1,8 @@
+BRANCH=$(git symbolic-ref --short HEAD)
+if ! echo "$BRANCH" | grep -qE '^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$'; then
+  echo "Invalid branch name: $BRANCH"
+  echo "Expected pattern: <type>/task.NN  (type: feature | hotfix | refactor | test | docs | chore)"
+  echo "Example: feature/task.13"
+  exit 1
+fi
 npm run typecheck && npm run test:unit
