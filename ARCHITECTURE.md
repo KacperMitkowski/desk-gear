@@ -445,7 +445,6 @@ deskgear/
 │   ├── factories/              # @faker-js/faker fixtures
 │   └── mocks/                  # MSW handlers
 ├── .github/workflows/
-├── docker-compose.yml          # lokalny postgres (opcja dla dev)
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.ts
@@ -764,47 +763,64 @@ enum OrderStatus {
   CANCELLED
 }
 
+// === Konwencje schematu (obowiązują dla WSZYSTKICH modeli) ===
+// - ID:        String @id @default(uuid(7)) @db.Uuid  (UUID v7 — sortable, native uuid w PG)
+// - DateTime:  @db.Timestamptz(6)                     (timezone-aware, μs precision)
+// - Email:     @db.Citext                             (case-insensitive — wymaga extension `citext`)
+// - Naming:    camelCase w Prismie + @map("snake_case") / @@map("snake_case") w DB.
+//              Wyjątek: pola wymagane przez Auth.js Prisma adapter (`refresh_token`, `access_token`,
+//              `expires_at`, `id_token`, `token_type`, `session_state`) zostają snake_case w Prismie —
+//              adapter pisze do nich po dosłownej nazwie.
+// UWAGA: modele biznesowe poniżej (Category, Product, Cart, Order itd.) są szkicami z wcześniejszej
+// iteracji i wciąż używają `@default(cuid())` + nazewnictwa bez @map. Przy implementacji każdego
+// z nich w E2.4+ trzeba je dostosować do powyższej konwencji.
+
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String
-  firstName     String
-  lastName      String
-  role          UserRole @default(CUSTOMER)
-  createdAt     DateTime @default(now())
-  addresses     Address[]
-  orders        Order[]
-  cart          Cart?
-  accounts      Account[]              // OAuth (faza 3)
-  resetTokens   PasswordResetToken[]
+  id            String    @id @default(uuid(7)) @db.Uuid
+  email         String    @unique @db.Citext
+  emailVerified DateTime? @db.Timestamptz(6) @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+  // Pola biznesowe (passwordHash, firstName, lastName, role, addresses, orders, cart, resetTokens)
+  // dodawane są w task #6 (E3) razem z Credentials provider — wymagają osobnej migracji.
+  accounts      Account[]
+
+  @@map("user")
 }
 
 // Auth.js v5 wymaga tych dwóch modeli (Prisma adapter contract)
 // W fazie 1 z Credentials provider obie tabele mogą być puste — ale schema musi je mieć.
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String                  // "oauth" | "credentials" | "email"
-  provider          String                  // "google" | "github" | "credentials"
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String @id @default(uuid(7)) @db.Uuid
+  userId            String @db.Uuid @map("user_id")
+  type              String // "oauth" | "credentials" | "email"
+  provider          String // "google" | "github" | "credentials"
+  providerAccountId String @map("provider_account_id")
+
+  // Auth.js Prisma adapter wymaga tych dosłownych nazw — zostają snake_case w Prismie.
+  refresh_token String? @db.Text
+  access_token  String? @db.Text
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String? @db.Text
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
+  @@map("account")
 }
 
 model VerificationToken {
-  identifier String                         // email
-  token      String  @unique
-  expires    DateTime
+  identifier String // email
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
 
   @@unique([identifier, token])
+  @@map("verification_token")
 }
 
 model Category {
@@ -890,7 +906,7 @@ model Order {
 **Konwencja typu**:
 
 ```typescript
-// src/lib/money/types.ts
+// lib/money/types.ts
 export type Money = string & { readonly __brand: "Money" }
 
 export function toMoney(value: string | number | Prisma.Decimal): Money {
@@ -903,7 +919,7 @@ export function toMoney(value: string | number | Prisma.Decimal): Money {
 **Zod schema**:
 
 ```typescript
-// src/lib/money/schema.ts
+// lib/money/schema.ts
 import * as z from "zod"
 
 export const moneySchema = z
@@ -931,7 +947,7 @@ function toProductVariantDto(variant: PrismaProductVariant): ProductVariantDto {
 **Formatter na froncie**:
 
 ```typescript
-// src/lib/money/format.ts
+// lib/money/format.ts
 export function formatMoney(value: Money, locale = "pl-PL", currency = "PLN"): string {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(value))
 }
@@ -1394,7 +1410,7 @@ Ustawienia:
 ### 7.2. Struktura
 
 ```
-src/lib/auth/
+lib/auth/
 ├── auth.config.ts       # edge-safe config (bez DB adaptera) — używany w proxy.ts
 ├── auth.ts              # pełna konfiguracja (auth.config + Prisma adapter + Credentials)
 ├── require-role.ts      # helper dla Server Actions
@@ -1406,7 +1422,7 @@ src/lib/auth/
 **`auth.config.ts`** (edge-safe, bez DB):
 
 ```typescript
-// src/lib/auth/auth.config.ts
+// lib/auth/auth.config.ts
 import type { NextAuthConfig } from "next-auth"
 
 export const authConfig = {
@@ -1430,7 +1446,7 @@ export const authConfig = {
 **`auth.ts`** (Node.js runtime, z DB):
 
 ```typescript
-// src/lib/auth/auth.ts
+// lib/auth/auth.ts
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
@@ -1572,7 +1588,7 @@ model PasswordResetToken {
 Po udanym logowaniu chcemy zmergować guest cart (cookie `__dg_guest_cart`) z user cartem. Auth.js v5 oferuje **eventy** które są wywoływane po sukcesach autoryzacji — używamy `signIn` event:
 
 ```typescript
-// src/lib/auth/auth.ts (fragment)
+// lib/auth/auth.ts (fragment)
 import { cookies } from "next/headers"
 import { cartService } from "@/features/cart/services/cart.service"
 
@@ -2527,7 +2543,7 @@ NEON_API_KEY=          # tylko CI
 SENTRY_DSN=
 ```
 
-Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`).
+Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 
 ---
 
@@ -2628,46 +2644,57 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - [ ] `package.json` `lint-staged`: prettier + eslint na zmienionych plikach
 - **DoD**: commit `feature: invalid` odrzucony; commit `#13 add husky` przechodzi; push z brancha `bad-name` odrzucony; push z `feature/task.13` przechodzi
 
-**E1.6: Env validation (`src/env.ts`)**
+**E1.6: Env validation (`env.ts`)**
 
 - [ ] `npm i @t3-oss/env-nextjs zod`
-- [ ] `src/env.ts` z schemami `server`/`client`
+- [ ] `env.ts` w root projektu z `createEnv({ server, client, runtimeEnv })`
 - [ ] Pierwsze zmienne: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `NODE_ENV`
-- [ ] Import w `next.config.ts` (`import('./src/env.ts')`)
-- **DoD**: brak `DATABASE_URL` w `.env` powoduje czytelny error przy `npm run build`
+- [ ] Import w `next.config.ts` (`import "./env"`)
+- **DoD**: brak `DATABASE_URL` w `.env.local` powoduje czytelny error przy `npm run build`
 
 #### E2 — Database i ORM
 
-**E2.1: Neon project + lokalny Postgres docker-compose**
+**E2.1: Neon project (lokalny dev przez Neon dev branch)**
 
-- [ ] Utworzyć konto Neon (jeśli brak), nowy projekt, region `eu-central-1`
-- [ ] Skopiować `DATABASE_URL` do `.env`
-- [ ] `docker-compose.yml` z `postgres:17` (alternatywa lokalna dla CI)
-- [ ] README: jak uruchomić docker-compose
+- [ ] Utworzyć konto Neon (jeśli brak), nowy projekt, region `eu-central-1` (Frankfurt)
+- [ ] Stworzyć **dev branch** w Neon (separate od prod `main` branch) — żeby lokalny development nie tknął prod-data
+- [ ] Skopiować `DATABASE_URL` dev brancha do `.env.local`
+- [ ] README: instrukcja konfiguracji Neon dev branch (brak docker-compose w fazie 0 — Neon free tier wystarczy)
 - **DoD**: `psql $DATABASE_URL -c "SELECT 1"` zwraca wynik
 
 **E2.2: Prisma init + Prisma 7 setup + base schema**
 
-- [ ] `npm i prisma @prisma/client @prisma/adapter-pg && npx prisma init`
-- [ ] **Prisma 7**: w `schema.prisma` ustaw `output = "../src/generated/prisma"` (wymagane w v7)
-- [ ] `src/lib/db/prisma.ts` używa `PrismaPg` adapter (Postgres adapter package):
+- [ ] `npm i prisma @prisma/client @prisma/adapter-pg pg && npm i -D tsx @types/pg`
+- [ ] `npx prisma init`
+- [ ] **Prisma 7**: w `schema.prisma`:
+  - `output = "../lib/generated/prisma"` (custom path zgodny z konwencją projektu)
+  - `previewFeatures = ["postgresqlExtensions"]` w generator
+  - `extensions = [citext]` w datasource (auto-instalacja `CREATE EXTENSION citext` w migracji)
+- [ ] `lib/db/prisma.ts` używa `PrismaPg` adapter (Postgres adapter):
   ```typescript
-  import { PrismaClient } from "@/generated/prisma/client"
+  import { PrismaClient } from "@/lib/generated/prisma/client"
   import { PrismaPg } from "@prisma/adapter-pg"
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+  import { env } from "@/env"
+  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL })
   export const prisma = new PrismaClient({ adapter })
   ```
-- [ ] Skopiować model `User`, `Account` (opcjonalny pod OAuth w fazie 3), `VerificationToken` (Auth.js wymaga) do `schema.prisma` (patrz sekcja 5.5)
+- [ ] Modele `User`, `Account`, `VerificationToken` (Auth.js Prisma adapter contract — patrz sekcja 5.5)
 - [ ] **Bez** modelu `Session` — używamy JWT strategy (ADR-001)
+- [ ] Konwencje schematu:
+  - ID: `String @id @default(uuid(7)) @db.Uuid` — UUID v7 (sortable, native uuid w PG)
+  - DateTime: `@db.Timestamptz(6)` (timezone-aware, μs precyzja)
+  - Email: `@db.Citext` (case-insensitive native)
+  - Naming: camelCase w Prismie + `@map("snake_case")` / `@@map("snake_case")` w DB (wyjątek: Auth.js adapter-required fields jak `refresh_token` zostają snake_case w Prismie)
 - [ ] `npx prisma migrate dev --name initial`
 - [ ] `prisma/seed.ts` — pusty stub z `import 'dotenv/config'` na górze (Prisma 7 nie auto-loaduje env)
-- [ ] `package.json`: `"prisma": { "seed": "tsx prisma/seed.ts" }`
-- **DoD**: `npx prisma studio` otwiera DB z tabelami `User`, `Account`, `VerificationToken`
+- [ ] `package.json`: `"prisma": { "seed": "tsx prisma/seed.ts" }` + `"postinstall": "prisma generate"`
+- [ ] Scripts: `db:generate`, `db:migrate`, `db:migrate:deploy`, `db:studio`, `db:seed`
+- **DoD**: `npm run db:studio` otwiera DB z tabelami `user`, `account`, `verification_token`
 
 **E2.3: Prisma client singleton**
 
-- [ ] `src/lib/db/prisma.ts` z singletonem (chronionym przed multiple instances w dev)
-- **DoD**: import `prisma` działa w Server Action (test handler)
+- [ ] `lib/db/prisma.ts` z singletonem (chronionym przed multiple instances w dev mode HMR)
+- **DoD**: import `prisma` z `@/lib/db/prisma` działa w Server Action (test handler)
 
 **E2.4: Models — Category, Product, ProductImage, ProductVariant**
 
@@ -2703,13 +2730,13 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - [ ] `npm i next-auth@5.0.0-beta.<X> @auth/prisma-adapter bcryptjs`
 - [ ] `npm i -D @types/bcryptjs`
 - [ ] **Pin wersji** w `package.json` (bez `^`) — Auth.js v5 nadal beta
-- [ ] `src/lib/auth/auth.config.ts` — edge-safe config (bez Prisma adaptera, bez `bcryptjs`)
+- [ ] `lib/auth/auth.config.ts` — edge-safe config (bez Prisma adaptera, bez `bcryptjs`)
 - [ ] Callback `authorized` — chroni `/admin`, `/account`
 - **DoD**: import `authConfig` w pliku edge-runtime nie rzuca błędu o "Prisma not edge-compatible"
 
 **E3.2: Auth.js pełna konfiguracja (Node runtime)**
 
-- [ ] `src/lib/auth/auth.ts` — pełna konfiguracja z `PrismaAdapter(prisma)`, `Credentials` provider, JWT strategy (7 dni)
+- [ ] `lib/auth/auth.ts` — pełna konfiguracja z `PrismaAdapter(prisma)`, `Credentials` provider, JWT strategy (7 dni)
 - [ ] `authorize()` callback waliduje credentials przez `loginSchema`, hashuje hasło przez `bcryptjs.compare`
 - [ ] Callbacki `jwt` i `session` — dorzucają `id` i `role` do tokenu/sesji
 - [ ] Export `handlers, auth, signIn, signOut`
@@ -2725,7 +2752,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 
 **E3.4: `requireRole` helper**
 
-- [ ] `src/lib/auth/require-role.ts` — używa `auth()` z Auth.js v5
+- [ ] `lib/auth/require-role.ts` — używa `auth()` z Auth.js v5
 - [ ] Unit test: `requireRole(['ADMIN'])` rzuca `AppError('UNAUTHORIZED')` bez sesji, `AppError('FORBIDDEN')` z złą rolą
 - **DoD**: 2 testy zielone, helper używany w Server Actions
 
@@ -2739,27 +2766,27 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 
 **E4.1: AppError + AppErrorCode + AppErrors helpers**
 
-- [ ] `src/lib/errors/app-error.ts` (patrz 6.3)
+- [ ] `lib/errors/app-error.ts` (patrz 6.3)
 - [ ] Unit testy dla helperów (`AppErrors.emailExists()`)
 - **DoD**: testy zielone
 
 **E4.2: Zod error map (globalny customError)**
 
-- [ ] `src/lib/validation/zod-error-map.ts` (patrz 6.2)
+- [ ] `lib/validation/zod-error-map.ts` (patrz 6.2)
 - [ ] Import w `src/instrumentation.ts` żeby uruchomił się na starcie
 - [ ] Unit testy `extractParams()` dla różnych issue codes
 - **DoD**: `z.string().min(8).safeParse("x").error.issues[0].message` to JSON z `code` i `params`
 
 **E4.3: ActionResult + toActionResult**
 
-- [ ] `src/lib/actions/action-result.ts` (types)
-- [ ] `src/lib/actions/to-action-result.ts` (handler)
+- [ ] `lib/actions/action-result.ts` (types)
+- [ ] `lib/actions/to-action-result.ts` (handler)
 - [ ] Unit testy: ZodError → validation, AppError → business/auth, inny → server + traceId
 - **DoD**: 4 testy zielone
 
 **E4.4: Money types + schema + format**
 
-- [ ] `src/lib/money/types.ts`, `schema.ts`, `format.ts` (patrz 5.6)
+- [ ] `lib/money/types.ts`, `schema.ts`, `format.ts` (patrz 5.6)
 - [ ] Unit testy `formatMoney` dla edge cases (zero, duże liczby)
 - **DoD**: `formatMoney("249.00")` → `"249,00 zł"`
 
@@ -2773,7 +2800,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 
 **E4.6: resolveErrorMessage z trójwarstwową kaskadą**
 
-- [ ] `src/lib/validation/resolve-error-message.ts` (patrz 6.7)
+- [ ] `lib/validation/resolve-error-message.ts` (patrz 6.7)
 - [ ] Unit testy: override per pole > schema-level > global > fallback > code
 - **DoD**: 5 testów (po jednym dla każdego poziomu kaskady) zielone
 
@@ -2827,8 +2854,8 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 **E6.4: Resend integration**
 
 - [ ] `npm i resend`
-- [ ] `src/lib/email/resend.ts` client
-- [ ] `src/lib/email/templates/reset-password.tsx` (React Email)
+- [ ] `lib/email/resend.ts` client
+- [ ] `lib/email/templates/reset-password.tsx` (React Email)
 - [ ] Wysyłka maila z linkiem `/reset-password?token=...`
 - [ ] MSW handler dla testów (`tests/mocks/handlers/resend.ts`)
 - **DoD**: w dev console.log link; w prod mail dochodzi (test ręczny)

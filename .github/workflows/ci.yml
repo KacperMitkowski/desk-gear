@@ -12,10 +12,19 @@ concurrency:
 permissions:
   contents: read
 
+# CI env placeholders. `env.ts` walidacja przez @t3-oss/env-nextjs wymaga tych zmiennych
+# żeby `next build` / `tsc` przeszło. DATABASE_URL jest realnie używany w jobach z DB;
+# AUTH_SECRET / AUTH_URL są placeholderami (Auth.js stub jest w task #6).
+env:
+  AUTH_SECRET: ci-secret-min-32-chars-long-pad-pad
+  AUTH_URL: http://localhost:3000
+
 jobs:
   quality:
     name: Quality (typecheck + lint + format)
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,7 +39,17 @@ jobs:
   unit-integration:
     name: Unit + integration (with coverage)
     runs-on: ubuntu-latest
-    # TODO(F0-05): add postgres service + DATABASE_URL env + `npx prisma migrate deploy`
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: deskgear_test
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 10s
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +57,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npx prisma migrate deploy
       - run: npm run test:coverage
       - uses: actions/upload-artifact@v4
         if: always()
@@ -49,6 +69,8 @@ jobs:
   build:
     name: Build (next build)
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,7 +84,17 @@ jobs:
     name: E2E (Playwright on production build)
     needs: [unit-integration, build]
     runs-on: ubuntu-latest
-    # TODO(F0-05): add postgres service + `npx prisma migrate deploy` + `npx prisma db seed`
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: deskgear_test
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 10s
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,6 +102,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx prisma db seed
       - run: npx playwright install --with-deps chromium
       # `npm run build` must precede `playwright test`: Playwright's webServer
       # starts `npm run start` in CI mode (see playwright.config.ts), which

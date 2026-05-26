@@ -1,0 +1,61 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [citext]
+}
+
+// Auth.js v5 Prisma adapter contract — minimalny zestaw.
+// Pola biznesowe (passwordHash, firstName, lastName, role) dochodzą w task #6 (E3).
+
+// DB-level CHECK constraints (zarządzane przez migration.sql, nie schema.prisma):
+//   - user_email_format_check: email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'  (loose regex)
+//   - user_email_length_check: char_length(email) <= 254  (RFC 5321 limit)
+// Strict walidacja jest w Zod (warstwa aplikacji); CHECK to defense-in-depth.
+model User {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  email         String    @unique @db.Citext
+  emailVerified DateTime? @db.Timestamptz(6) @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Account {
+  id                String @id @default(uuid(7)) @db.Uuid
+  userId            String @db.Uuid @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String @map("provider_account_id")
+
+  // Auth.js Prisma adapter wymaga tych dosłownych nazw — zostają snake_case w Prismie.
+  refresh_token String? @db.Text
+  access_token  String? @db.Text
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String? @db.Text
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@unique([identifier, token])
+  @@map("verification_token")
+}
