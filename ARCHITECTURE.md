@@ -2139,7 +2139,7 @@ fi
 
 #### Podsumowanie wszystkich trzech
 
-```
+```text
 git commit -m "#13 add variant picker"
   ↓
   pre-commit:    prettier + eslint na zmienionych plikach    [~3s]
@@ -2244,7 +2244,7 @@ jobs:
 
 Pierwsza linia commita: `#NN` lub `#NN <opis>`. `NN` to numer GitHub issue/taska — dzięki niemu commit automatycznie pojawia się jako komentarz w issue.
 
-```
+```text
 #13
 #13 add variant picker to PDP
 #21 prevent double submission of place order action
@@ -2254,7 +2254,7 @@ Pierwsza linia commita: `#NN` lub `#NN <opis>`. `NN` to numer GitHub issue/taska
 
 Dla większych zmian dłuższe wyjaśnienie idzie do **body** (po pustej linii) — opisujesz **dlaczego**, nie **co**. Body jest dowolne, bez walidacji:
 
-```
+```text
 #142 use SELECT FOR UPDATE for stock decrement
 
 Race condition was possible when two customers placed orders
@@ -2272,11 +2272,16 @@ leaving negative inventory. Now wrapped in transaction with row lock.
 | ------- | ------------------------------------------------------------------ |
 | `type`  | `feature` \| `hotfix` \| `refactor` \| `test` \| `docs` \| `chore` |
 | `NN`    | numer GitHub issue / taska (same cyfry)                            |
-| Regex   | `^(feature\|hotfix\|refactor\|test\|docs\|chore)/task\.[0-9]+$`    |
+
+**Regex walidacji** (z hooka `.husky/pre-push`):
+
+```regex
+^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$
+```
 
 **Reguła decyzyjna gdy się wahasz, jaki typ wybrać**:
 
-```
+```text
 Czy zmiana wpływa na to co user widzi/może zrobić?
 ├── TAK → feature (jeśli nowe) lub hotfix (jeśli naprawa)
 └── NIE
@@ -2293,7 +2298,7 @@ Czy zmiana wpływa na to co user widzi/może zrobić?
 
 **Przykłady**:
 
-```
+```text
 feature/task.13
 hotfix/task.21
 refactor/task.42
@@ -2306,8 +2311,11 @@ chore/task.4
 
 ```sh
 # .husky/pre-push
-BRANCH=$(git symbolic-ref --short HEAD)
-if ! echo "$BRANCH" | grep -qE '^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$'; then
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ -z "$BRANCH" ]; then
+  echo "Detached HEAD — skipping branch name validation"
+  echo "(likely tag push, rebase, or checkout of specific commit)."
+elif ! echo "$BRANCH" | grep -qE '^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$'; then
   echo "Invalid branch name: $BRANCH"
   echo "Expected pattern: <type>/task.NN  (type: feature | hotfix | refactor | test | docs | chore)"
   echo "Example: feature/task.13"
