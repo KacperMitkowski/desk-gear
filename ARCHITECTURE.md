@@ -136,13 +136,13 @@ Stosujemy **standardową praktykę Next.js App Router**:
 
 ### 2.4. Tooling
 
-| Cel              | Narzędzie                                     |
-| ---------------- | --------------------------------------------- |
-| Linter           | ESLint 9 (flat config) + `@typescript-eslint` |
-| Format           | Prettier + `prettier-plugin-tailwindcss`      |
-| Hooks Git        | Husky + lint-staged                           |
-| Commit msg       | commitlint (Conventional Commits)             |
-| Bundler analyzer | `@next/bundle-analyzer` (na żądanie)          |
+| Cel              | Narzędzie                                            |
+| ---------------- | ---------------------------------------------------- |
+| Linter           | ESLint 9 (flat config) + `@typescript-eslint`        |
+| Format           | Prettier + `prettier-plugin-tailwindcss`             |
+| Hooks Git        | Husky + lint-staged                                  |
+| Commit msg       | husky `commit-msg` (regex `#NN [opis]` — patrz 13.1) |
+| Bundler analyzer | `@next/bundle-analyzer` (na żądanie)                 |
 
 ---
 
@@ -2107,106 +2107,50 @@ npm run typecheck && npm run test:unit
 
 #### 🪝 commit-msg — uruchamia się **po** wpisaniu wiadomości commit, **przed** zapisaniem commita
 
-**Cel**: wymuszenie **Conventional Commits**. Niby drobiazg, ale daje:
+**Cel**: wymuszenie, by każda pierwsza linia commita zaczynała się od `#NN` (numer taska / issue na GitHubie). Dzięki temu GitHub automatycznie linkuje commit jako komentarz pod odpowiednim issue — pełna ścieżka audytowa „zadanie → commit" bez ręcznego klikania.
 
-- Automatyczne generowanie changeloga (faza 2)
-- Czytelną historię w `git log --oneline`
-- Możliwość filtrowania zmian po typie (`git log --grep="^feat"`)
-- Konsystencję w prezentacji projektu (rekruter zaglądający w historię widzi profesjonalizm)
+Typ zmiany (feature, hotfix, refactor itd.) przenosimy do **nazwy brancha** (sekcja 13.5), bo przy squash & merge i tak liczy się tytuł PR-a, a nie poszczególne commit messages.
 
 **Co robi**:
 
-```bash
+```sh
 # .husky/commit-msg
-npx --no -- commitlint --edit "$1"
+MSG=$(head -n1 "$1")
+if ! echo "$MSG" | grep -qE '^#[0-9]+( .+)?$'; then
+  echo "Invalid commit message: $MSG"
+  echo "Expected format: #NN  or  #NN <optional description>"
+  echo "Example: #13   |   #13 add variant picker"
+  exit 1
+fi
 ```
 
-**Konfiguracja** (`commitlint.config.ts`):
+**Format**:
 
-```typescript
-export default {
-  extends: ["@commitlint/config-conventional"],
-  rules: {
-    "type-enum": [
-      2,
-      "always",
-      [
-        "feature", // nowa funkcjonalność user-visible
-        "hotfix", // bug fix
-        "refactor", // refactoring (w tym performance, optymalizacje)
-        "test", // dodanie/zmiana testów
-        "docs", // dokumentacja (README, ARCHITECTURE.md, JSDoc, komentarze)
-        "chore", // wszystko inne — formatowanie, deps, build, CI, lockfile, tooling
-      ],
-    ],
-    "scope-enum": [
-      2,
-      "always",
-      [
-        "products",
-        "cart",
-        "orders",
-        "checkout",
-        "auth",
-        "admin",
-        "ui",
-        "form",
-        "i18n",
-        "db",
-        "config",
-        "deps",
-      ],
-    ],
-    "subject-case": [2, "always", "lower-case"],
-    "subject-max-length": [2, "always", 100],
-  },
-}
-```
+| Element              | Reguła                                            |
+| -------------------- | ------------------------------------------------- |
+| Pierwsza linia       | `#NN` lub `#NN <opis>` (regex: `^#[0-9]+( .+)?$`) |
+| `NN`                 | numer GitHub issue / taska (same cyfry)           |
+| Opis                 | opcjonalny, dowolna treść po pierwszej spacji     |
+| Body (kolejne linie) | dowolne — bez walidacji, oddzielone pustą linią   |
 
-**Reguła decyzyjna gdy się wahasz, jaki typ wybrać**:
-
-```
-Czy zmiana wpływa na to co user widzi/może zrobić?
-├── TAK → feature (jeśli nowe) lub hotfix (jeśli naprawa)
-└── NIE
-    └── Czy to zmiana w kodzie produkcyjnym?
-        ├── TAK → refactor (obejmuje też perf i optymalizacje)
-        └── NIE
-            └── Czy to test?
-                ├── TAK → test
-                └── NIE
-                    └── Czy to dokumentacja?
-                        ├── TAK → docs
-                        └── NIE → chore
-```
-
-| Sprawdzenie                                                | Przykład OK                                    | Przykład odrzucony                       |
-| ---------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------- |
-| Format `type(scope): subject`                              | `feature(products): add variant picker to PDP` | `added variant picker`                   |
-| `type` z listy dozwolonych                                 | `hotfix(cart): handle stock race`              | `bugfix: cart issue`                     |
-| `scope` z listy dozwolonych (lub bez scope dla globalnych) | `feature(products): ...`                       | `feature(productss): ...`                |
-| `subject` lowercase                                        | `feature(auth): add reset password flow`       | `feature(auth): Add Reset Password Flow` |
-| `subject` max 100 znaków                                   | (krótkie)                                      | (super długie pojedyncze zdanie)         |
-| Bez kropki na końcu subject                                | `hotfix(cart): handle empty state`             | `hotfix(cart): handle empty state.`      |
-
-**Co się dzieje przy błędzie**: commit jest **odrzucony** z komunikatem od commitlint pokazującym co jest nie tak. Dev poprawia message i ponawia.
+**Co się dzieje przy błędzie**: commit jest **odrzucony** z komunikatem wskazującym oczekiwany format. Dev poprawia message i ponawia.
 
 **Target czasu**: < 1s.
 
 #### Podsumowanie wszystkich trzech
 
-```
-git commit -m "feature(products): add variant picker"
+```text
+git commit -m "#13 add variant picker"
   ↓
   pre-commit:    prettier + eslint na zmienionych plikach    [~3s]
   ↓
-  commit-msg:    commitlint na wiadomości                    [<1s]
+  commit-msg:    regex `^#[0-9]+( .+)?$` na pierwszej linii  [<1s]
   ↓
   COMMIT ZAPISANY
 
 git push
   ↓
-  pre-push:      tsc + vitest unit                           [~25s]
+  pre-push:      walidacja nazwy brancha + tsc + vitest unit [~25s]
   ↓
   PUSH WYSŁANY
 
@@ -2296,134 +2240,91 @@ jobs:
 - Linear history (squash & merge)
 - Conversation resolution required
 
-### 13.4. Conventional Commits — przykłady per typ
+### 13.4. Commit message — przykłady
 
-#### `feature` — nowa funkcjonalność user-visible
+Pierwsza linia commita: `#NN` lub `#NN <opis>`. `NN` to numer GitHub issue/taska — dzięki niemu commit automatycznie pojawia się jako komentarz w issue.
 
-```
-feature(products): add variant picker to PDP
-feature(products): show "low stock" badge when stockQuantity < 5
-feature(cart): add quantity selector in cart item row
-feature(checkout): add shipping method selector with InPost paczkomat
-feature(auth): add reset password flow with email link
-feature(admin): add bulk delete action in products table
-feature(orders): add order status timeline on detail page
-feature(i18n): add English translations for products feature
-feature(ui): add EmptyState component for empty product lists
-feature: add dark mode toggle in header
+```text
+#13
+#13 add variant picker to PDP
+#21 prevent double submission of place order action
+#42 extract status transition logic to dedicated service method
+#7 bump next to 16.2.5
 ```
 
-#### `hotfix` — bug fix
+Dla większych zmian dłuższe wyjaśnienie idzie do **body** (po pustej linii) — opisujesz **dlaczego**, nie **co**. Body jest dowolne, bez walidacji:
 
-```
-hotfix(cart): handle stock decrement race condition with SELECT FOR UPDATE
-hotfix(products): show correct price when variant has priceOverride
-hotfix(checkout): prevent double submission of place order action
-hotfix(auth): clear session cookie on signOut from middleware
-hotfix(form): pass aria-invalid only when error is visible
-hotfix(admin): preserve filters in URL after editing product
-hotfix(orders): correct VAT calculation when invoiceRequired is true
-hotfix(i18n): escape interpolation params in error messages
-hotfix(db): handle Decimal serialization in OrderItem snapshot
-hotfix: prevent hydration mismatch in ProductCard with featured badge
-```
-
-#### `refactor` — refactoring (też performance/optymalizacja)
-
-```
-refactor(orders): extract status transition logic to dedicated service method
-refactor(products): replace nested ternary with switch statement in variant picker
-refactor(cart): unify guest and logged-in cart resolution in single method
-refactor(products): add index on category+isActive for PLP query
-refactor(db): use Prisma transaction for order placement with stock decrement
-refactor(auth): split auth config into edge-safe and node-safe files
-refactor(form): replace Controller with useController in all RHF wrappers
-refactor(ui): extract Card variants to dedicated component family
-refactor(admin): memoize column definitions in TanStack Table
-refactor: replace lodash.debounce with custom hook (smaller bundle)
-```
-
-#### `test` — dodanie/zmiana testów
-
-```
-test(products): add unit tests for productService.getBySlug
-test(cart): add integration test for merge guest into user
-test(checkout): add e2e test for guest checkout happy path
-test(checkout): add e2e test for insufficient stock during placement
-test(auth): add integration test for password reset token flow
-test(admin): add e2e test for product creation with variants
-test(form): add component test for RHFTextField error message override
-test(i18n): add test for missing translation key fallback
-test(orders): add unit tests for state machine transition validation
-test: increase coverage threshold to 80% for services
-```
-
-#### `docs` — dokumentacja
-
-```
-docs(architecture): clarify ActionResult contract for mutations
-docs(architecture): add ADR-017 for notFound() pattern in services
-docs(architecture): rewrite section 7 for Auth.js v5 + JWT
-docs(auth): add JSDoc to requireRole helper
-docs(products): explain variant attributes JSONB schema
-docs: add README badges for build status and coverage
-docs: add CONTRIBUTING.md with commit conventions
-docs: document local development setup with docker-compose
-docs(db): explain CHECK constraints rationale in migration comments
-docs(i18n): add guide for adding new feature translations
-```
-
-#### `chore` — wszystko inne (formatowanie, deps, build, CI, tooling)
-
-```
-chore(deps): bump next to 16.2.5
-chore(deps): bump @prisma/client and @prisma/adapter-pg to 7.6.0
-chore(deps): pin next-auth to 5.0.0-beta.25
-chore(config): add tsconfig.json strict flags
-chore(config): configure path aliases for @/features
-chore: run prettier on all files after rule change
-chore: update .gitignore for .env.local and .vercel
-chore: configure VS Code workspace settings for team consistency
-chore: add EditorConfig file
-chore(deps): remove unused lodash dependency
-```
-
-#### Commity z breaking change
-
-Conventional Commits używa `!` po typie do oznaczenia breaking change:
-
-```
-feature(auth)!: switch from JWT to database sessions
-
-BREAKING CHANGE: all active JWT sessions are invalidated after deploy.
-Users will need to log in again.
-```
-
-#### Commit bez scope (globalne zmiany lub gdy scope niejasny)
-
-Scope jest opcjonalny — gdy zmiana dotyczy całego projektu lub nie pasuje do żadnej kategorii:
-
-```
-feature: add dark mode toggle (touches multiple features)
-hotfix: prevent hydration mismatch in root layout
-chore: run prettier on all files
-docs: rewrite README from scratch
-refactor: rename `middleware.ts` to `proxy.ts` after Next.js 16 upgrade
-```
-
-#### Multi-line commit (z body)
-
-Dla większych zmian dodaj body po pustej linii — opisuje **dlaczego**, nie **co** (kod pokazuje co):
-
-```
-refactor(orders): use SELECT FOR UPDATE for stock decrement
+```text
+#142 use SELECT FOR UPDATE for stock decrement
 
 Race condition was possible when two customers placed orders
 for the last item simultaneously — both decremented stock from 1 to 0,
 leaving negative inventory. Now wrapped in transaction with row lock.
-
-Closes #142
 ```
+
+### 13.5. Branch naming
+
+**Cel**: każdy branch jest jednoznacznie powiązany z jednym taskiem na GitHubie, a jego prefix od razu mówi, jakiego rodzaju to zmiana (zastępując prefix Conventional Commits, którego już nie używamy w wiadomościach).
+
+**Wzorzec**: `<type>/task.NN`
+
+| Element | Reguła                                                             |
+| ------- | ------------------------------------------------------------------ |
+| `type`  | `feature` \| `hotfix` \| `refactor` \| `test` \| `docs` \| `chore` |
+| `NN`    | numer GitHub issue / taska (same cyfry)                            |
+
+**Regex walidacji** (z hooka `.husky/pre-push`):
+
+```regex
+^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$
+```
+
+**Reguła decyzyjna gdy się wahasz, jaki typ wybrać**:
+
+```text
+Czy zmiana wpływa na to co user widzi/może zrobić?
+├── TAK → feature (jeśli nowe) lub hotfix (jeśli naprawa)
+└── NIE
+    └── Czy to zmiana w kodzie produkcyjnym?
+        ├── TAK → refactor (obejmuje też perf i optymalizacje)
+        └── NIE
+            └── Czy to test?
+                ├── TAK → test
+                └── NIE
+                    └── Czy to dokumentacja?
+                        ├── TAK → docs
+                        └── NIE → chore
+```
+
+**Przykłady**:
+
+```text
+feature/task.13
+hotfix/task.21
+refactor/task.42
+test/task.7
+docs/task.99
+chore/task.4
+```
+
+**Egzekwowanie**: hook `.husky/pre-push` blokuje push z brancha o niezgodnej nazwie — przed wywołaniem `tsc` i `vitest unit`:
+
+```sh
+# .husky/pre-push
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ -z "$BRANCH" ]; then
+  echo "Detached HEAD — skipping branch name validation"
+  echo "(likely tag push, rebase, or checkout of specific commit)."
+elif ! echo "$BRANCH" | grep -qE '^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$'; then
+  echo "Invalid branch name: $BRANCH"
+  echo "Expected pattern: <type>/task.NN  (type: feature | hotfix | refactor | test | docs | chore)"
+  echo "Example: feature/task.13"
+  exit 1
+fi
+npm run typecheck && npm run test:unit
+```
+
+**Uwaga o `main`**: lokalny push z brancha `main` przestanie być możliwy bez `--no-verify`. To zgodne ze strategią „PR-only, branch protection" (sekcja 13.3) — nigdy nie pushujemy ręcznie do `main`.
 
 ---
 
@@ -2511,7 +2412,7 @@ Wyobraź sobie: jestem w trakcie pracy nad ficzerem "dodanie pola `tags` do prod
 
 ```bash
 # 1. Tworzę feature branch w git
-git checkout -b feat/product-tags
+git checkout -b feature/task.142
 
 # 2. Edytuję schema.prisma — dodaję pole tags
 # 3. Generuję migrację lokalnie
@@ -2522,7 +2423,7 @@ npx prisma migrate dev --name add_product_tags
 # ...
 
 # 5. Commituję i pushuję
-git push origin feat/product-tags
+git push origin feature/task.142
 
 # 6. Otwieram PR na GitHubie
 # ↓ tu zaczyna się magia Neon + Vercel ↓
@@ -2666,7 +2567,7 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 **Cel**: szkielet projektu, zero biznesu, ale CI/CD i fundament są gotowe. Login działa, jeden formularz, deploy zielony.
 
 - [ ] Init Next.js + TS + Tailwind + ESLint + Prettier (`create-next-app`)
-- [ ] Husky + lint-staged + commitlint (3 hooki — patrz 13.1)
+- [ ] Husky + lint-staged + regex-walidacja commitów i nazw branchy (3 hooki — patrz 13.1)
 - [ ] Vitest + RTL + MSW setup
 - [ ] Playwright setup
 - [ ] GitHub Actions workflow (4 jobs: quality, unit-integration, build, e2e)
@@ -2717,16 +2618,15 @@ Validacja przez `zod` na starcie aplikacji (`src/env.ts` z `@t3-oss/env-nextjs`)
 - [ ] Skrypty: `npm run format`, `npm run format:check`
 - **DoD**: `npm run format:check` zwraca 0 diff
 
-**E1.5: Husky + lint-staged + commitlint**
+**E1.5: Husky + lint-staged + walidacja commitów/branchy**
 
-- [ ] `npm i -D husky lint-staged @commitlint/cli @commitlint/config-conventional`
+- [ ] `npm i -D husky lint-staged`
 - [ ] `npx husky init`
 - [ ] `.husky/pre-commit`: `npx lint-staged`
-- [ ] `.husky/pre-push`: `npm run typecheck && npm run test:unit`
-- [ ] `.husky/commit-msg`: `npx --no -- commitlint --edit "$1"`
-- [ ] `commitlint.config.ts` z type-enum + scope-enum (patrz 13.1)
+- [ ] `.husky/pre-push`: walidacja nazwy brancha (regex `^(feature|hotfix|refactor|test|docs|chore)/task\.[0-9]+$`) + `npm run typecheck && npm run test:unit` (patrz 13.5)
+- [ ] `.husky/commit-msg`: regex `^#[0-9]+( .+)?$` na pierwszej linii (patrz 13.1)
 - [ ] `package.json` `lint-staged`: prettier + eslint na zmienionych plikach
-- **DoD**: próba commita z `xyz: invalid` jest odrzucona; commit `feature(config): add husky` przechodzi
+- **DoD**: commit `feature: invalid` odrzucony; commit `#13 add husky` przechodzi; push z brancha `bad-name` odrzucony; push z `feature/task.13` przechodzi
 
 **E1.6: Env validation (`src/env.ts`)**
 
