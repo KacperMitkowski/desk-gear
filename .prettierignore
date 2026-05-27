@@ -10,6 +10,7 @@ node_modules/
 # Generated
 *.lock
 package-lock.json
+lib/generated/
 
 # Test artifacts
 /coverage
