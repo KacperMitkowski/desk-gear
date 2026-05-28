@@ -27,4 +27,17 @@ describe("requireRole", () => {
     await expect(requireRole([UserRole.ADMIN])).rejects.toBeInstanceOf(AppError)
     await expect(requireRole([UserRole.ADMIN])).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
+
+  it("zwraca sesję gdy rola pasuje", async () => {
+    const session = {
+      user: {
+        id: "u1",
+        email: "admin@x.z",
+        role: UserRole.ADMIN,
+      },
+      expires: new Date(Date.now() + 60_000).toISOString(),
+    }
+    vi.mocked(auth).mockResolvedValue(session as never)
+    await expect(requireRole([UserRole.ADMIN])).resolves.toBe(session)
+  })
 })

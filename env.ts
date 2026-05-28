@@ -22,4 +22,17 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
   },
   emptyStringAsUndefined: true,
+  // ADMIN_SEED_EMAIL i ADMIN_SEED_PASSWORD muszą być ustawione razem — ustawienie tylko jednego
+  // po cichu wyłączyłoby admin seed (prisma/seed.ts), co jest łatwą do przeoczenia pomyłką.
+  createFinalSchema: (shape) =>
+    z.object(shape).superRefine((value, ctx) => {
+      const emailSet = value.ADMIN_SEED_EMAIL !== undefined
+      const passwordSet = value.ADMIN_SEED_PASSWORD !== undefined
+      if (emailSet !== passwordSet) {
+        const message =
+          "ADMIN_SEED_EMAIL i ADMIN_SEED_PASSWORD muszą być ustawione oba naraz (albo żadne)."
+        ctx.addIssue({ code: "custom", message, path: ["ADMIN_SEED_EMAIL"] })
+        ctx.addIssue({ code: "custom", message, path: ["ADMIN_SEED_PASSWORD"] })
+      }
+    }),
 })
