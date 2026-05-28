@@ -9,20 +9,28 @@ datasource db {
   extensions = [citext]
 }
 
-// Auth.js v5 Prisma adapter contract — minimalny zestaw.
-// Pola biznesowe (passwordHash, firstName, lastName, role) dochodzą w task #6 (E3).
+// Auth.js v5 Prisma adapter contract + Credentials (passwordHash) + RBAC (role).
+// Pozostałe pola biznesowe (firstName, lastName, phone, addresses) dochodzą w późniejszych taskach.
 
 // DB-level CHECK constraints (zarządzane przez migration.sql, nie schema.prisma):
 //   - user_email_format_check: email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'  (loose regex)
 //   - user_email_length_check: char_length(email) <= 254  (RFC 5321 limit)
 // Strict walidacja jest w Zod (warstwa aplikacji); CHECK to defense-in-depth.
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
 model User {
   id            String    @id @default(uuid(7)) @db.Uuid
   email         String    @unique @db.Citext
-  emailVerified DateTime? @db.Timestamptz(6) @map("email_verified")
+  emailVerified DateTime? @map("email_verified") @db.Timestamptz(6)
   image         String?
-  createdAt     DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
-  updatedAt     DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+  passwordHash  String    @map("password_hash")
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   accounts      Account[]
 
   @@map("user")
@@ -30,7 +38,7 @@ model User {
 
 model Account {
   id                String @id @default(uuid(7)) @db.Uuid
-  userId            String @db.Uuid @map("user_id")
+  userId            String @map("user_id") @db.Uuid
   type              String
   provider          String
   providerAccountId String @map("provider_account_id")

@@ -4,8 +4,30 @@ import { loadEnvConfig } from "@next/env"
 
 loadEnvConfig(process.cwd())
 
+// Dynamic imports w main() — env.ts waliduje przy załadowaniu modułu (createEnv),
+// więc moduł nie może być załadowany przed loadEnvConfig.
 async function main() {
-  console.log("Seed stub — extend in task #7 (E2.4+) for products/users seed.")
+  const { hash } = await import("bcryptjs")
+  const { env } = await import("@/env")
+  const { prisma } = await import("@/lib/db/prisma")
+  const { UserRole } = await import("@/lib/generated/prisma")
+
+  try {
+    if (!env.ADMIN_SEED_EMAIL || !env.ADMIN_SEED_PASSWORD) {
+      console.log("ADMIN_SEED_EMAIL/PASSWORD nie ustawione — pomijam admin seed.")
+      return
+    }
+
+    const passwordHash = await hash(env.ADMIN_SEED_PASSWORD, 12)
+    const admin = await prisma.user.upsert({
+      where: { email: env.ADMIN_SEED_EMAIL },
+      update: { role: UserRole.ADMIN, passwordHash },
+      create: { email: env.ADMIN_SEED_EMAIL, role: UserRole.ADMIN, passwordHash },
+    })
+    console.log(`Admin upserted: ${admin.email} (id=${admin.id})`)
+  } finally {
+    await prisma.$disconnect()
+  }
 }
 
 main().catch((e) => {
