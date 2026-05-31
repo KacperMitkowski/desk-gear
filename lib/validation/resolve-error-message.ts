@@ -27,9 +27,9 @@ export function resolveErrorMessage(
 
   const { code, params = {}, fallback } = parsed
 
-  // POZIOM 1: override z komponentu.
+  // POZIOM 1: override z komponentu. Sprawdzamy `!== undefined`, żeby nie odrzucać poprawnego "" (np. ukrycie komunikatu).
   const override = overrides?.[code]
-  if (override) {
+  if (override !== undefined) {
     return typeof override === "function" ? override(params) : override
   }
 
@@ -44,7 +44,7 @@ export function resolveErrorMessage(
   const tryGeneric = t(generic, params)
   if (tryGeneric !== generic) return tryGeneric
 
-  // Fallback z backendu, a w ostateczności sam kod.
-  if (fallback) return fallback
+  // Fallback z backendu, a w ostateczności sam kod. `!== undefined`, by nie odrzucać poprawnego "".
+  if (fallback !== undefined) return fallback
   return code
 }
