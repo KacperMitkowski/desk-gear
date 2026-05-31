@@ -435,7 +435,7 @@ deskgear/
 │   ├── i18n/
 │   │   ├── pl/                 # patrz sekcja 11 — pliki per feature
 │   │   ├── messages.ts         # collector wszystkich plików per feature
-│   │   └── t.ts                # helper t(key, params)
+│   │   └── translate.ts        # helper t(key, params)
 │   ├── env.ts                  # zod-validated env
 │   └── middleware.ts           # ochrona /admin, /account
 ├── tests/
