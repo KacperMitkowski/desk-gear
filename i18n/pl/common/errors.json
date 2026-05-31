@@ -1,0 +1,35 @@
+{
+  "invalid_type": {
+    "string": "To pole jest wymagane",
+    "number": "Wymagana jest wartość liczbowa",
+    "date": "Wymagana jest poprawna data",
+    "default": "Nieprawidłowy typ wartości"
+  },
+  "too_small": {
+    "string": "Wymagane co najmniej {minimum} znaków",
+    "number": "Wartość musi być co najmniej {minimum}",
+    "date": "Data nie może być wcześniejsza niż {minimum}",
+    "default": "Wartość jest zbyt mała"
+  },
+  "too_big": {
+    "string": "Dozwolone najwyżej {maximum} znaków",
+    "number": "Wartość może wynosić najwyżej {maximum}",
+    "date": "Data nie może być późniejsza niż {maximum}",
+    "default": "Wartość jest zbyt duża"
+  },
+  "invalid_format": {
+    "string": "Nieprawidłowy format",
+    "email": "Nieprawidłowy adres email",
+    "url": "Nieprawidłowy adres URL",
+    "uuid": "Nieprawidłowy identyfikator UUID",
+    "default": "Nieprawidłowy format wartości"
+  },
+  "invalid_email": "Nieprawidłowy adres email",
+  "not_multiple_of": "Wartość musi być wielokrotnością {divisor}",
+  "unrecognized_keys": "Obiekt zawiera nierozpoznane pola",
+  "invalid_union": "Wartość nie pasuje do żadnego z dozwolonych wariantów",
+  "invalid_key": "Nieprawidłowy klucz w obiekcie",
+  "invalid_element": "Nieprawidłowy element w kolekcji",
+  "invalid_value": "Niedozwolona wartość",
+  "custom": "Nieprawidłowa wartość"
+}
