@@ -8,6 +8,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    reporters: ["tree"],
     projects: [
       {
         extends: true,
