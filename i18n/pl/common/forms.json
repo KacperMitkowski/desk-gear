@@ -2,5 +2,9 @@
   "save": "Zapisz",
   "cancel": "Anuluj",
   "submit": "Wyślij",
-  "required": "Pole wymagane"
+  "required": "Pole wymagane",
+  "passwordToggle": {
+    "show": "Pokaż hasło",
+    "hide": "Ukryj hasło"
+  }
 }

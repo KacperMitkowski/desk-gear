@@ -5,6 +5,7 @@ import { useState, type ComponentProps } from "react"
 import type { FieldValues } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n/translate"
 
 import { FormTextField } from "./form-textfield"
 
@@ -25,7 +26,7 @@ export function FormPasswordField<T extends FieldValues>(props: FormPasswordFiel
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label={visible ? "Ukryj hasło" : "Pokaż hasło"}
+          aria-label={visible ? t("forms.passwordToggle.hide") : t("forms.passwordToggle.show")}
           aria-pressed={visible}
           className="cursor-pointer"
           onClick={() => setVisible((v) => !v)}

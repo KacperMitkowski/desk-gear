@@ -9,6 +9,14 @@ import { toActionResult } from "@/lib/actions/to-action-result"
 import { signIn } from "@/lib/auth/auth"
 import { AppError } from "@/lib/errors/app-error"
 
+// Akceptujemy tylko ścieżki względne ("/foo/bar"). Odrzucamy protocol-relative URL ("//evil.com")
+// i wszystkie absolutne URL-e — inaczej atakujący mógłby podać `?callbackUrl=https://evil.com`
+// i wykorzystać formularz logowania jako open redirect.
+function isSafeRedirectPath(url: string | undefined): url is string {
+  if (!url) return false
+  return url.startsWith("/") && !url.startsWith("//")
+}
+
 // Logowanie przez Credentials.
 // - Walidacja + signIn idą przez toActionResult: ZodError → "validation",
 //   AuthError → AppError("INVALID_CREDENTIALS") → "auth" (ten sam komunikat dla złego emaila
@@ -32,6 +40,8 @@ export async function loginAction(
     return null
   })
 
-  if (result.status === "success") redirect(callbackUrl ?? "/account")
+  if (result.status === "success") {
+    redirect(isSafeRedirectPath(callbackUrl) ? callbackUrl : "/account")
+  }
   return result
 }
