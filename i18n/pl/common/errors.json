@@ -31,5 +31,10 @@
   "invalid_key": "Nieprawidłowy klucz w obiekcie",
   "invalid_element": "Nieprawidłowy element w kolekcji",
   "invalid_value": "Niedozwolona wartość",
-  "custom": "Nieprawidłowa wartość"
+  "custom": "Nieprawidłowa wartość",
+  "INVALID_CREDENTIALS": "Nieprawidłowe dane logowania",
+  "unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
+  "validation": {
+    "failed": "Popraw błędy w formularzu"
+  }
 }

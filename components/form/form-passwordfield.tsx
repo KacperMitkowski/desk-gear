@@ -5,31 +5,35 @@ import { useState, type ComponentProps } from "react"
 import type { FieldValues } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
+import { t } from "@/i18n/translate"
 
 import { FormTextField } from "./form-textfield"
 
 type FormPasswordFieldProps<T extends FieldValues> = Omit<
   ComponentProps<typeof FormTextField<T>>,
-  "type"
+  "type" | "endAdornment"
 >
 
 export function FormPasswordField<T extends FieldValues>(props: FormPasswordFieldProps<T>) {
   const [visible, setVisible] = useState(false)
 
   return (
-    <div className="relative">
-      <FormTextField {...props} type={visible ? "text" : "password"} />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={visible ? "Ukryj hasło" : "Pokaż hasło"}
-        aria-pressed={visible}
-        className="absolute right-1 top-[26px]"
-        onClick={() => setVisible((v) => !v)}
-      >
-        {visible ? <EyeOff /> : <Eye />}
-      </Button>
-    </div>
+    <FormTextField
+      {...props}
+      type={visible ? "text" : "password"}
+      endAdornment={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={visible ? t("forms.passwordToggle.hide") : t("forms.passwordToggle.show")}
+          aria-pressed={visible}
+          className="cursor-pointer"
+          onClick={() => setVisible((v) => !v)}
+        >
+          {visible ? <EyeOff /> : <Eye />}
+        </Button>
+      }
+    />
   )
 }

@@ -95,6 +95,11 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
+      # Konto admin seedowane przed Playwrightem; ten sam pair używają testy
+      # (tests/e2e/login.spec.ts) jako default. Bez tego seed pomija admina
+      # i test logowania dostaje CredentialsSignin.
+      ADMIN_SEED_EMAIL: admin@desk-gear.local
+      ADMIN_SEED_PASSWORD: ChangeMe1234!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

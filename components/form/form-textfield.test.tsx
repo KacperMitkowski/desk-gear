@@ -81,4 +81,24 @@ describe("FormTextField", () => {
 
     expect(input).toHaveAttribute("aria-invalid", "true")
   })
+
+  it("renderuje description z aria-describedby i chowa ją gdy pojawi się błąd", async () => {
+    const user = userEvent.setup()
+    const schema = z.object({ value: z.string().min(1) })
+    renderInForm(
+      <FormTextField<FieldValues> name="value" label="Nazwa" description="Widoczna publicznie" />,
+      { resolver: zodResolver(schema) },
+    )
+
+    const input = screen.getByLabelText("Nazwa")
+    expect(screen.getByText("Widoczna publicznie")).toBeInTheDocument()
+    expect(input).toHaveAttribute("aria-describedby", "value-description")
+
+    await user.click(input)
+    await user.tab()
+
+    // Po pojawieniu się błędu description znika, a aria-describedby wskazuje error.
+    expect(screen.queryByText("Widoczna publicznie")).not.toBeInTheDocument()
+    expect(input).toHaveAttribute("aria-describedby", "value-error")
+  })
 })
