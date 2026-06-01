@@ -2,7 +2,7 @@
 
 Sklep z akcesoriami biurkowymi — Next.js 16 + Prisma 7 + Auth.js v5 + PostgreSQL (Neon).
 
-**Production**: https://&lt;projekt&gt;.vercel.app _(uzupełnij URL po pierwszym deploy)_
+**Production**: `https://<projekt>.vercel.app` _(uzupełnij URL po pierwszym deploy)_
 
 ## Database setup (local dev)
 
@@ -68,17 +68,19 @@ Production hostuje się na **Vercel** (Hobby tier), DB to **Neon `main` branch**
 
 ### Pipeline buildu
 
-Vercel po każdym push do `main` uruchamia:
+Vercel automatycznie używa skryptu `vercel-build` z `package.json` jeśli istnieje (zamiast `build`). Dzięki temu `npm run build` lokalnie i w CI jest czystym `next build` (bez side-effects na DB), a Vercel uruchamia osobny pipeline:
 
-```
-npm ci                              # install deps
-  └── postinstall: prisma generate  # generuje Prisma client (package.json)
-build:
-  ├── prisma migrate deploy         # aplikuje pending migracje na Neon main
-  └── next build                    # build aplikacji Next.js
+```text
+npm ci                                  # install deps
+  └── postinstall: prisma generate      # generuje Prisma client
+vercel-build:
+  ├── prisma migrate deploy             # aplikuje pending migracje na Neon main
+  └── next build                        # build aplikacji Next.js
 ```
 
 Migracje wjeżdżają automatycznie przy każdym deploy. Brak migracji do zaaplikowania = no-op.
+
+**Trade-off**: jeśli `prisma migrate deploy` zaaplikuje migrację i potem `next build` się wywali, prod DB ma już nowy schemat a Vercel nadal serwuje stary kod. Dla Phase 0 / Hobby tier akceptujemy to ryzyko; w fazie 2 (per-PR Neon preview branches + osobny release step) rozdzielimy migrate od build.
 
 ### Pierwsza konfiguracja
 
