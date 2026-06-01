@@ -69,6 +69,15 @@ jobs:
   build:
     name: Build (next build)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: deskgear_test
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 10s
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/deskgear_test
     steps:
@@ -78,6 +87,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # `npm run build` = `prisma migrate deploy && next build` — wymaga DB do
+      # zaaplikowania migracji (jak na Vercelu). Testujemy ten sam pipeline co prod.
       - run: npm run build
 
   e2e:
@@ -107,13 +118,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx prisma migrate deploy
+      # `npm run build` = `prisma migrate deploy && next build`. Seed po buildzie,
+      # bo wymaga zaaplikowanych migracji. Playwright webServer (npm run start) wymaga
+      # `.next/` z buildu.
+      - run: npm run build
       - run: npx prisma db seed
       - run: npx playwright install --with-deps chromium
-      # `npm run build` must precede `playwright test`: Playwright's webServer
-      # starts `npm run start` in CI mode (see playwright.config.ts), which
-      # requires `.next/` from a prior build.
-      - run: npm run build
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
