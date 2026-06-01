@@ -42,7 +42,7 @@ export default async function LoginPage({
         Password
         <input name="password" type="password" required autoComplete="current-password" />
       </label>
-      <Button type="submit">Test</Button>
+      <Button type="submit">Zaloguj się</Button>
     </form>
   )
 }
