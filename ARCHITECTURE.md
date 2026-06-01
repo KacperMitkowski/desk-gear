@@ -155,7 +155,7 @@ Stosujemy **standardową praktykę Next.js App Router**:
 │  PRESENTATION (React 19, RSC + Client Components)              │
 │  - Server Components (default)                                 │
 │  - Client Components ("use client") — tylko gdy potrzebne      │
-│  - Komponenty RHF (RHFTextField, RHFSelect...) wokół shadcn    │
+│  - Komponenty RHF (FormTextField, FormSelect...) wokół shadcn    │
 └──────────────┬───────────────────────────┬─────────────────────┘
                │ READ                      │ WRITE
                │ (RSC, async)              │ (form submit, mutation)
@@ -420,7 +420,7 @@ deskgear/
 │   │   └── admin/
 │   ├── components/
 │   │   ├── ui/                 # shadcn — NIE MODYFIKOWAĆ
-│   │   ├── form/               # RHF wrappery (RHFTextField...)
+│   │   ├── form/               # RHF wrappery (FormTextField...)
 │   │   ├── layout/             # Header, Footer, Sidebar
 │   │   └── shared/             # ProductCard, PriceTag, ...
 │   ├── lib/
@@ -1345,7 +1345,7 @@ Klucz `errors.password_too_short` musi istnieć w pliku tłumaczeń (sekcja 11).
 Wrapper RHF przyjmuje opcjonalny `errorMessages` prop — mapę `code → message` (lub `code → (params) => string`):
 
 ```tsx
-<RHFTextField
+<FormTextField
   name="password"
   label="Hasło"
   type="password"
@@ -1795,10 +1795,10 @@ Każdy wrapper:
 6. Ma dedykowane unit + component testy
 
 ```typescript
-// components/form/rhf-text-field.tsx
+// components/form/form-textfield.tsx
 type ErrorMessageOverride = string | ((params: Record<string, unknown>) => string);
 
-type RHFTextFieldProps<T extends FieldValues> = {
+type FormTextFieldProps<T extends FieldValues> = {
   name: Path<T>;
   label: string;
   hint?: string;
@@ -1806,9 +1806,9 @@ type RHFTextFieldProps<T extends FieldValues> = {
   errorMessages?: Record<string, ErrorMessageOverride>;  // poziom 1 z 6.7
 } & Omit<ComponentProps<typeof Input>, 'name'>;
 
-export function RHFTextField<T extends FieldValues>({
+export function FormTextField<T extends FieldValues>({
   name, label, hint, required, errorMessages, ...inputProps
-}: RHFTextFieldProps<T>) {
+}: FormTextFieldProps<T>) {
   const { control } = useFormContext<T>();
   const { field, fieldState } = useController({ control, name });
   const errorMsg = fieldState.error
@@ -1841,18 +1841,18 @@ export function RHFTextField<T extends FieldValues>({
 
 ### 10.3. Kolejność dodawania wrapperów (driven by need)
 
-| #   | Wrapper                                          | Pierwszy ekran               |
-| --- | ------------------------------------------------ | ---------------------------- |
-| 1   | `RHFTextField`                                   | Login, Register              |
-| 2   | `RHFPasswordField`                               | Login, Register              |
-| 3   | `RHFCheckbox`                                    | Register (terms), filtry PLP |
-| 4   | `RHFTextarea`                                    | Admin product form           |
-| 5   | `RHFSelect`                                      | Checkout, admin              |
-| 6   | `RHFRadioGroup`                                  | Checkout (shipping)          |
-| 7   | `RHFNumberInput`                                 | Admin (price, stock)         |
-| 8   | `RHFFieldArray` (variants z discriminated union) | Admin product form           |
-| 9   | `RHFComboboxAsync` _(faza 2)_                    | Admin search                 |
-| 10  | `RHFDatePicker` _(faza 2)_                       | Admin orders filter          |
+| #   | Wrapper                                           | Pierwszy ekran               |
+| --- | ------------------------------------------------- | ---------------------------- |
+| 1   | `FormTextField`                                   | Login, Register              |
+| 2   | `FormPasswordField`                               | Login, Register              |
+| 3   | `FormCheckbox`                                    | Register (terms), filtry PLP |
+| 4   | `FormTextarea`                                    | Admin product form           |
+| 5   | `FormSelect`                                      | Checkout, admin              |
+| 6   | `FormRadioGroup`                                  | Checkout (shipping)          |
+| 7   | `FormNumberInput`                                 | Admin (price, stock)         |
+| 8   | `FormFieldArray` (variants z discriminated union) | Admin product form           |
+| 9   | `FormComboboxAsync` _(faza 2)_                    | Admin search                 |
+| 10  | `FormDatePicker` _(faza 2)_                       | Admin orders filter          |
 
 ### 10.4. Komponenty strukturalne
 
@@ -2013,8 +2013,8 @@ Unit (Vitest, pure functions)  ◄── 20% — helpery, formattery, error map
 
 **Component** — `*.test.tsx` obok komponentu
 
-- `RHFTextField`: renderuje error, formatuje parametry, aria-invalid
-- `RHFTextField` z `errorMessages` override — sprawdza poziom 1 kaskady
+- `FormTextField`: renderuje error, formatuje parametry, aria-invalid
+- `FormTextField` z `errorMessages` override — sprawdza poziom 1 kaskady
 - **Nie testujemy** komponentów shadcn (są przetestowane upstream)
 
 **Integration (60%)** — `tests/integration/`
@@ -2582,7 +2582,7 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 | **Checkout flow (stepper, formularz)**                                  |              |    ✅    |
 | **Składanie zamówienia ("Fake PAID")**                                  |              |    ✅    |
 | **Historia zamówień użytkownika**                                       |              |    ✅    |
-| **Admin panel: CRUD produktów (z `RHFFieldArray`)**                     |              |    ✅    |
+| **Admin panel: CRUD produktów (z `FormFieldArray`)**                    |              |    ✅    |
 | **Admin panel: zarządzanie zamówieniami**                               |              |    ✅    |
 | **Faktura VAT (z NIP-em w formularzu)**                                 |              |    ✅    |
 | **Email potwierdzenia zamówienia (Resend)**                             |              |    ✅    |
@@ -2607,7 +2607,7 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 - [ ] Auth.js v5 stub (JWT strategy, Credentials provider, login testowego admina z seed)
 - [ ] `lib/errors/`, `lib/actions/`, `lib/validation/zod-error-map.ts`, `lib/money/`
 - [ ] `i18n/` z prostym `t()` helperem + pierwszy `errors.json`
-- [ ] `RHFTextField` + `RHFPasswordField` (z testami + `errorMessages` override)
+- [ ] `FormTextField` + `FormPasswordField` (z testami + `errorMessages` override)
 - [ ] Strona `/login` z działającym formularzem
 - [ ] Deploy na Vercel + seed na Neon
 - [ ] **Gate**: zalogowanie i wylogowanie działa w produkcji, wszystkie 4 joby zielone
@@ -2828,15 +2828,15 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 - [ ] Dodać komponenty: `Input`, `Label`, `Button`, `Form` (jako baza dla wrapperów)
 - **DoD**: `<Button>Test</Button>` renderuje się
 
-**E5.2: RHFTextField**
+**E5.2: FormTextField**
 
-- [ ] `src/components/form/rhf-text-field.tsx` (patrz 10.2)
+- [ ] `src/components/form/form-textfield.tsx` (patrz 10.2)
 - [ ] Component testy: renderowanie, error z resolveErrorMessage, override per pole, aria-invalid
 - **DoD**: 4 testy zielone
 
-**E5.3: RHFPasswordField**
+**E5.3: FormPasswordField**
 
-- [ ] Wraper RHFTextField + toggle visibility (oko)
+- [ ] Wraper FormTextField + toggle visibility (oko)
 - [ ] Strength meter (opcjonalnie — może faza 2)
 - [ ] Component testy
 - **DoD**: 2 testy zielone
@@ -2847,7 +2847,7 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 
 - [ ] Schema Zod `loginSchema` w `features/auth/schemas.ts`
 - [ ] Server Action `loginAction`
-- [ ] Strona `/login` z RHF form, RHFTextField, RHFPasswordField
+- [ ] Strona `/login` z RHF form, FormTextField, FormPasswordField
 - [ ] Integration test: bad credentials → `auth` error, dobre → success + session
 - **DoD**: można się zalogować jako admin (z seeda), redirect na `/account`
 
@@ -2990,11 +2990,11 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 
 W trakcie implementacji formularzy w E8 i wcześniej dochodzą:
 
-- [ ] `RHFCheckbox` (filtry PLP, register terms)
-- [ ] `RHFTextarea` (review, faza 2)
-- [ ] `RHFSelect` (sortowanie PLP, kraj w adresie)
-- [ ] `RHFRadioGroup` (shipping method — faza 2)
-- [ ] `RHFNumberInput` (quantity w cart)
+- [ ] `FormCheckbox` (filtry PLP, register terms)
+- [ ] `FormTextarea` (review, faza 2)
+- [ ] `FormSelect` (sortowanie PLP, kraj w adresie)
+- [ ] `FormRadioGroup` (shipping method — faza 2)
+- [ ] `FormNumberInput` (quantity w cart)
 
 Każdy wraper = osobny issue z component testem.
 
@@ -3020,7 +3020,7 @@ Każdy wraper = osobny issue z component testem.
 - [ ] Strona `/account/orders` (historia)
 - [ ] Admin: middleware + layout + dashboard
 - [ ] Admin: lista produktów (TanStack Table) + CRUD
-- [ ] Admin: edycja produktu z `RHFFieldArray` (discriminated union per kategoria)
+- [ ] Admin: edycja produktu z `FormFieldArray` (discriminated union per kategoria)
 - [ ] Admin: lista zamówień + detail + status change
 - [ ] Email potwierdzenia (Resend)
 - [ ] **Neon preview branches per PR** (sekcja 15.3)

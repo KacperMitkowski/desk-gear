@@ -2,6 +2,7 @@ import { AuthError } from "next-auth"
 import { redirect } from "next/navigation"
 
 import { signIn } from "@/lib/auth/auth"
+import { Button } from "@/components/ui/button"
 
 export default async function LoginPage({
   searchParams,
@@ -41,7 +42,7 @@ export default async function LoginPage({
         Password
         <input name="password" type="password" required autoComplete="current-password" />
       </label>
-      <button type="submit">Sign in</button>
+      <Button type="submit">Zaloguj się</Button>
     </form>
   )
 }
