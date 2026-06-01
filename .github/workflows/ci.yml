@@ -110,9 +110,8 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npx prisma db seed
       - run: npx playwright install --with-deps chromium
-      # `npm run build` must precede `playwright test`: Playwright's webServer
-      # starts `npm run start` in CI mode (see playwright.config.ts), which
-      # requires `.next/` from a prior build.
+      # `npm run build` musi poprzedzać playwright test: Playwright webServer
+      # uruchamia `npm run start` w trybie CI (playwright.config.ts), który wymaga `.next/`.
       - run: npm run build
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4

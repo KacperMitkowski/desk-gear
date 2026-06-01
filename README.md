@@ -1,6 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DeskGear
 
-## Database setup
+Sklep z akcesoriami biurkowymi — Next.js 16 + Prisma 7 + Auth.js v5 + PostgreSQL (Neon).
+
+**Production**: `https://<projekt>.vercel.app` _(uzupełnij URL po pierwszym deploy)_
+
+## Database setup (local dev)
 
 Projekt używa **Neon** (managed PostgreSQL 17) dla dev/preview/prod. Lokalny development korzysta z **Neon dev branch** (separate od `main` branch, żeby nie psuć prod-data). CI używa `services: postgres:17` w GitHub Actions.
 
@@ -40,11 +44,16 @@ Projekt używa **Neon** (managed PostgreSQL 17) dla dev/preview/prod. Lokalny de
 
 | Komenda                     | Co robi                                                           |
 | --------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`               | dev server na http://localhost:3000                               |
 | `npm run db:generate`       | regeneruje Prisma client (po zmianie `schema.prisma`)             |
 | `npm run db:migrate`        | tworzy + aplikuje nową migrację (`prisma migrate dev --name ...`) |
 | `npm run db:migrate:deploy` | aplikuje istniejące migracje (CI / prod)                          |
 | `npm run db:studio`         | przeglądarka tabel (GUI)                                          |
 | `npm run db:seed`           | uruchamia `prisma/seed.ts`                                        |
+| `npm run test`              | wszystkie testy (unit + integration)                              |
+| `npm run test:e2e`          | testy Playwright                                                  |
+| `npm run typecheck`         | TypeScript bez emit                                               |
+| `npm run lint`              | ESLint                                                            |
 
 ### Konwencje schematu
 
@@ -53,37 +62,72 @@ Projekt używa **Neon** (managed PostgreSQL 17) dla dev/preview/prod. Lokalny de
 - **Email**: `@db.Citext` — case-insensitive (wymaga extension `citext`, auto-tworzona przez Prismę).
 - **Naming**: camelCase w Prismie, snake_case w DB (przez `@map` / `@@map`). Wyjątek: Auth.js Prisma adapter-required fields (`refresh_token`, `access_token` itd.) zostają snake_case w Prismie.
 
-## Getting Started
+## Production deployment (Vercel + Neon)
 
-First, run the development server:
+Production hostuje się na **Vercel** (Hobby tier), DB to **Neon `main` branch** w regionie `eu-central-1` (Frankfurt). Architektura w `ARCHITECTURE.md` sekcja 15.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### Pipeline buildu
+
+Vercel automatycznie używa skryptu `vercel-build` z `package.json` jeśli istnieje (zamiast `build`). Dzięki temu `npm run build` lokalnie i w CI jest czystym `next build` (bez side-effects na DB), a Vercel uruchamia osobny pipeline:
+
+```text
+npm ci                                  # install deps
+  └── postinstall: prisma generate      # generuje Prisma client
+vercel-build:
+  ├── prisma migrate deploy             # aplikuje pending migracje na Neon main
+  └── next build                        # build aplikacji Next.js
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Migracje wjeżdżają automatycznie przy każdym deploy. Brak migracji do zaaplikowania = no-op.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Trade-off**: jeśli `prisma migrate deploy` zaaplikuje migrację i potem `next build` się wywali, prod DB ma już nowy schemat a Vercel nadal serwuje stary kod. Dla Phase 0 / Hobby tier akceptujemy to ryzyko; w fazie 2 (per-PR Neon preview branches + osobny release step) rozdzielimy migrate od build.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Pierwsza konfiguracja
 
-## Learn More
+1. **Połącz repo z Vercel**:
+   - Vercel Dashboard → **New Project** → import GitHub repo `desk-gear`
+   - Framework preset: **Next.js** (auto-wykrywany)
+   - Region: **Frankfurt (fra1)**
 
-To learn more about Next.js, take a look at the following resources:
+2. **Skonfiguruj env vars** (Settings → Environment Variables, Environment: **Production**):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   | Zmienna               | Wartość                                                               |
+   | --------------------- | --------------------------------------------------------------------- |
+   | `DATABASE_URL`        | Neon `main` branch **pooled** (`-pooler` w hoście)                    |
+   | `DIRECT_DATABASE_URL` | Neon `main` branch **direct** (bez `-pooler`) — dla `prisma migrate`  |
+   | `AUTH_SECRET`         | `openssl rand -base64 32` (min. 32 znaki)                             |
+   | `AUTH_URL`            | `https://<projekt>.vercel.app` (uzupełnij po pierwszym deploy)        |
+   | `ADMIN_SEED_EMAIL`    | email admina (opcjonalne — tylko na czas pierwszego seedu)            |
+   | `ADMIN_SEED_PASSWORD` | silne hasło ≥ 12 znaków (opcjonalne — tylko na czas pierwszego seedu) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   `ADMIN_SEED_EMAIL` i `ADMIN_SEED_PASSWORD` muszą być ustawione razem (env.ts to wymusza).
 
-## Deploy on Vercel
+3. **Pierwszy deploy** — Vercel triggeruje się automatycznie po push do `main`. Sprawdź logi:
+   - `prisma migrate deploy` zaaplikował migracje na Neon
+   - `next build` zielony
+   - Deployment opublikowany pod `https://<projekt>.vercel.app`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. **Seed produkcji (jednorazowo)** — uruchom **lokalnie** z prod credentialami w env:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```powershell
+   $env:DATABASE_URL = "<prod-pooled>"
+   $env:DIRECT_DATABASE_URL = "<prod-direct>"
+   $env:ADMIN_SEED_EMAIL = "<email>"
+   $env:ADMIN_SEED_PASSWORD = "<password>"
+   $env:AUTH_SECRET = "<dowolny-32-char>"  # wymagany przez env.ts walidację, niewykorzystywany przez seed
+   $env:AUTH_URL = "https://<projekt>.vercel.app"
+   npx prisma db seed
+   ```
+
+   Seed jest **idempotentny** (`upsert`) — bezpiecznie można uruchomić wielokrotnie.
+
+5. **Test ręczny**:
+   - `https://<projekt>.vercel.app/login` → zaloguj jako admin z seeda
+   - Po sukcesie redirect na `/account`, email admina widoczny
+   - Klik **Wyloguj się** → redirect na `/login`, sesja usunięta
+
+6. **Cleanup po seedingu** (security): po pierwszym logowaniu admina (i ewentualnej zmianie hasła) **usuń `ADMIN_SEED_PASSWORD` z Vercel env**. Hash zostaje w DB; plaintext w panelu Vercela już niepotrzebny.
+
+### Vercel Speed Insights (opcjonalnie)
+
+Włącz w Vercel Dashboard → Project → **Speed Insights** żeby śledzić Core Web Vitals w produkcji. Alternatywnie Chrome DevTools → Lighthouse, target: **Performance ≥ 90** na `/` i `/login`.
