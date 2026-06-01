@@ -1,0 +1,35 @@
+{
+  "subtitle": "Zaloguj się, aby kontynuować, lub utwórz nowe konto",
+  "footer": {
+    "prefix": "Aktualna wersja",
+    "terms": "Regulaminu DeskGear",
+    "middle": "wraz z",
+    "privacy": "Polityką ochrony prywatności"
+  },
+  "tabs": {
+    "signIn": "Zaloguj się",
+    "createAccount": "Utwórz konto"
+  },
+  "login": {
+    "title": "Zaloguj się",
+    "email": "Adres email",
+    "emailPlaceholder": "Wprowadź adres email",
+    "password": "Hasło",
+    "passwordPlaceholder": "Wprowadź hasło",
+    "submit": "Zaloguj się",
+    "submitting": "Logowanie…",
+    "forgotPassword": "Przypomnij hasło",
+    "noAccount": "Nie masz konta?",
+    "createAccount": "Utwórz je",
+    "orContinueWith": "lub kontynuuj z"
+  },
+  "errors": {
+    "email": "Nieprawidłowy adres email",
+    "emailRequired": "Email jest wymagany"
+  },
+  "account": {
+    "title": "Twoje konto",
+    "loggedInAs": "Zalogowano jako",
+    "signOut": "Wyloguj się"
+  }
+}

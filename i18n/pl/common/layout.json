@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "keyboards": "Klawiatury",
+    "audio": "Audio",
+    "display": "Monitory",
+    "workspace": "Workspace"
+  },
+  "header": {
+    "cart": "Koszyk",
+    "toggleTheme": "Przełącz motyw"
+  },
+  "footer": {
+    "tagline": "Akcesoria biurkowe dla profesjonalistów. Zaprojektowane, by pracowało się lepiej.",
+    "shop": "Sklep",
+    "company": "Firma",
+    "support": "Wsparcie",
+    "links": {
+      "keyboards": "Klawiatury",
+      "audio": "Audio",
+      "displays": "Monitory",
+      "workspace": "Akcesoria",
+      "about": "O nas",
+      "careers": "Kariera",
+      "blog": "Blog",
+      "press": "Prasa",
+      "help": "Centrum pomocy",
+      "shipping": "Dostawa",
+      "returns": "Zwroty",
+      "contact": "Kontakt"
+    },
+    "rights": "Wszelkie prawa zastrzeżone."
+  }
+}
