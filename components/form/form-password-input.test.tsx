@@ -8,7 +8,7 @@ import * as z from "zod"
 
 import "@/lib/validation/zod-error-map"
 
-import { FormPasswordField } from "./form-passwordfield"
+import { FormPasswordInput } from "./form-password-input"
 
 type FieldValues = { password: string }
 
@@ -24,10 +24,10 @@ function renderInForm(field: ReactNode, formOptions: UseFormProps<FieldValues> =
   return render(<Wrapper />)
 }
 
-describe("FormPasswordField", () => {
+describe("FormPasswordInput", () => {
   it("przełącza widoczność hasła po kliknięciu w ikonę oka", async () => {
     const user = userEvent.setup()
-    renderInForm(<FormPasswordField<FieldValues> name="password" label="Hasło" />)
+    renderInForm(<FormPasswordInput<FieldValues> name="password" label="Hasło" />)
 
     const input = screen.getByLabelText("Hasło") as HTMLInputElement
     expect(input.type).toBe("password")
@@ -42,10 +42,10 @@ describe("FormPasswordField", () => {
     expect(input.type).toBe("password")
   })
 
-  it("po blur wyświetla polski komunikat błędu (dziedziczy logikę FormTextField)", async () => {
+  it("po blur wyświetla polski komunikat błędu (dziedziczy logikę FormTextInput)", async () => {
     const user = userEvent.setup()
     const schema = z.object({ password: z.string().min(8) })
-    renderInForm(<FormPasswordField<FieldValues> name="password" label="Hasło" />, {
+    renderInForm(<FormPasswordInput<FieldValues> name="password" label="Hasło" />, {
       resolver: zodResolver(schema),
     })
 

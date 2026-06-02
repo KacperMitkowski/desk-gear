@@ -7,18 +7,18 @@ import type { FieldValues } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { t } from "@/i18n/translate"
 
-import { FormTextField } from "./form-textfield"
+import { FormTextInput } from "./form-text-input"
 
-type FormPasswordFieldProps<T extends FieldValues> = Omit<
-  ComponentProps<typeof FormTextField<T>>,
+type FormPasswordInputProps<T extends FieldValues> = Omit<
+  ComponentProps<typeof FormTextInput<T>>,
   "type" | "endAdornment"
 >
 
-export function FormPasswordField<T extends FieldValues>(props: FormPasswordFieldProps<T>) {
+export function FormPasswordInput<T extends FieldValues>(props: FormPasswordInputProps<T>) {
   const [visible, setVisible] = useState(false)
 
   return (
-    <FormTextField
+    <FormTextInput
       {...props}
       type={visible ? "text" : "password"}
       endAdornment={

@@ -7,8 +7,8 @@ import { useSearchParams } from "next/navigation"
 import { FormProvider, useForm } from "react-hook-form"
 import { toast } from "sonner"
 
-import { FormPasswordField } from "@/components/form/form-passwordfield"
-import { FormTextField } from "@/components/form/form-textfield"
+import { FormPasswordInput } from "@/components/form/form-password-input"
+import { FormTextInput } from "@/components/form/form-text-input"
 import { Button } from "@/components/ui/button"
 import { loginAction } from "@/features/auth/actions"
 import { OAuthButtons } from "@/features/auth/components/oauth-buttons"
@@ -35,7 +35,7 @@ export function LoginForm() {
     switch (error.type) {
       case "validation":
         // Safety-net: walidację zwykle łapie klient (zodResolver). Gdyby serwer zwrócił błędy
-        // pól, przepisujemy je do RHF — FormTextField zresolwuje komunikat.
+        // pól, przepisujemy je do RHF — FormTextInput zresolwuje komunikat.
         for (const fieldError of error.fieldErrors ?? []) {
           const path = String(fieldError.path[0]) as keyof LoginInput
           methods.setError(path, { message: fieldError.message })
@@ -58,7 +58,7 @@ export function LoginForm() {
     <div className="flex flex-col gap-5">
       <FormProvider {...methods}>
         <form onSubmit={methods.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
-          <FormTextField<LoginInput>
+          <FormTextInput<LoginInput>
             name="email"
             type="email"
             label={t("auth.login.email")}
@@ -69,7 +69,7 @@ export function LoginForm() {
               invalid_type: t("auth.errors.emailRequired"),
             }}
           />
-          <FormPasswordField<LoginInput>
+          <FormPasswordInput<LoginInput>
             name="password"
             label={t("auth.login.password")}
             placeholder={t("auth.login.passwordPlaceholder")}

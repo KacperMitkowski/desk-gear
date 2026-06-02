@@ -10,7 +10,7 @@ import * as z from "zod"
 // gołe komunikaty po angielsku i kaskada `resolveErrorMessage` nie miałaby co dekodować.
 import "@/lib/validation/zod-error-map"
 
-import { FormTextField } from "./form-textfield"
+import { FormTextInput } from "./form-text-input"
 
 type FieldValues = { value: string }
 
@@ -26,16 +26,16 @@ function renderInForm(field: ReactNode, formOptions: UseFormProps<FieldValues> =
   return render(<Wrapper />)
 }
 
-describe("FormTextField", () => {
+describe("FormTextInput", () => {
   it("renderuje label powiązany z inputem", () => {
-    renderInForm(<FormTextField<FieldValues> name="value" label="Email" />)
+    renderInForm(<FormTextInput<FieldValues> name="value" label="Email" />)
     expect(screen.getByLabelText("Email")).toBeInTheDocument()
   })
 
   it("po blur pokazuje polski komunikat błędu z resolveErrorMessage + i18n", async () => {
     const user = userEvent.setup()
     const schema = z.object({ value: z.string().min(8) })
-    renderInForm(<FormTextField<FieldValues> name="value" label="Hasło" />, {
+    renderInForm(<FormTextInput<FieldValues> name="value" label="Hasło" />, {
       resolver: zodResolver(schema),
     })
 
@@ -50,7 +50,7 @@ describe("FormTextField", () => {
     const user = userEvent.setup()
     const schema = z.object({ value: z.string().min(8) })
     renderInForm(
-      <FormTextField<FieldValues>
+      <FormTextInput<FieldValues>
         name="value"
         label="Hasło"
         errorMessages={{ too_small: "Za krótkie" }}
@@ -69,7 +69,7 @@ describe("FormTextField", () => {
   it('ustawia aria-invalid="true" gdy pole ma błąd', async () => {
     const user = userEvent.setup()
     const schema = z.object({ value: z.string().min(1) })
-    renderInForm(<FormTextField<FieldValues> name="value" label="Email" />, {
+    renderInForm(<FormTextInput<FieldValues> name="value" label="Email" />, {
       resolver: zodResolver(schema),
     })
 
@@ -86,7 +86,7 @@ describe("FormTextField", () => {
     const user = userEvent.setup()
     const schema = z.object({ value: z.string().min(1) })
     renderInForm(
-      <FormTextField<FieldValues> name="value" label="Nazwa" description="Widoczna publicznie" />,
+      <FormTextInput<FieldValues> name="value" label="Nazwa" description="Widoczna publicznie" />,
       { resolver: zodResolver(schema) },
     )
 

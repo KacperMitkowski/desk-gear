@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from "react"
 import { useController, useFormContext, type FieldValues, type Path } from "react-hook-form"
 
-import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { t } from "@/i18n/translate"
 import { cn } from "@/lib/utils"
@@ -12,32 +12,29 @@ import {
   type ErrorMessageOverride,
 } from "@/lib/validation/resolve-error-message"
 
-type FormTextFieldProps<T extends FieldValues> = {
+type FormCheckboxProps<T extends FieldValues> = {
   name: Path<T>
-  label: string
-  /** Dodatkowy opis pod inputem (np. wymogi dotyczące hasła, format wartości). */
+  /** Treść etykiety obok pola — ReactNode, bo regulamin zwykle zawiera link. */
+  label: ReactNode
+  /** Dodatkowy opis pod kontrolką (np. konsekwencje zaznaczenia). */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>
-  /** Dodatkowa treść w wierszu etykiety, wyrównana do prawej (np. link "Przypomnij hasło"). */
-  labelAction?: ReactNode
-  /** Element renderowany absolutnie wewnątrz inputa (np. toggle widoczności hasła). */
-  endAdornment?: ReactNode
-} & Omit<ComponentProps<typeof Input>, "name">
+} & Omit<ComponentProps<typeof Checkbox>, "name" | "checked" | "onCheckedChange" | "onBlur">
 
-export function FormTextField<T extends FieldValues>({
+export function FormCheckbox<T extends FieldValues>({
   name,
   label,
   description,
   required,
   errorMessages,
-  labelAction,
-  endAdornment,
   className,
-  ...inputProps
-}: FormTextFieldProps<T>) {
+  ...checkboxProps
+}: FormCheckboxProps<T>) {
   const { control } = useFormContext<T>()
   const { field, fieldState } = useController({ control, name })
+  // Rozpakowanie: `value`/`onChange` remapujemy na API checkboxa, resztę (ref, name, onBlur) spreadujemy.
+  const { value, onChange, ...fieldProps } = field
   const hasError = !!fieldState.error
   const errorMsg = hasError
     ? resolveErrorMessage(fieldState.error?.message ?? "", "string", errorMessages, t)
@@ -47,31 +44,21 @@ export function FormTextField<T extends FieldValues>({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex h-[14px] items-center justify-between gap-2">
-        <Label htmlFor={name}>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={name}
+          {...fieldProps}
+          checked={!!value}
+          onCheckedChange={(checked) => onChange(checked === true)}
+          aria-invalid={hasError}
+          aria-describedby={describedBy}
+          className={cn(className)}
+          {...checkboxProps}
+        />
+        <Label htmlFor={name} className="font-normal">
           {label}
           {required && <span className="ml-1 text-destructive">*</span>}
         </Label>
-        {labelAction && (
-          <div className="flex h-[14px] items-center text-sm leading-none">{labelAction}</div>
-        )}
-      </div>
-      <div className="relative">
-        <Input
-          id={name}
-          {...field}
-          {...inputProps}
-          aria-invalid={hasError}
-          aria-describedby={describedBy}
-          className={cn(
-            "h-10 border-foreground/10 bg-input dark:bg-input",
-            endAdornment && "pr-9",
-            className,
-          )}
-        />
-        {endAdornment && (
-          <div className="absolute inset-y-0 right-1 flex items-center">{endAdornment}</div>
-        )}
       </div>
       {description && !hasError && (
         <p id={`${name}-description`} className="text-sm text-muted-foreground">
