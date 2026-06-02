@@ -33,6 +33,7 @@
   "invalid_value": "Niedozwolona wartość",
   "custom": "Nieprawidłowa wartość",
   "INVALID_CREDENTIALS": "Nieprawidłowe dane logowania",
+  "EMAIL_ALREADY_EXISTS": "Konto z tym adresem email już istnieje",
   "unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
   "validation": {
     "failed": "Popraw błędy w formularzu"

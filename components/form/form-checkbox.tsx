@@ -52,7 +52,7 @@ export function FormCheckbox<T extends FieldValues>({
           onCheckedChange={(checked) => onChange(checked === true)}
           aria-invalid={hasError}
           aria-describedby={describedBy}
-          className={cn(className)}
+          className={cn("border-foreground/10 bg-input dark:bg-input", className)}
           {...checkboxProps}
         />
         <Label htmlFor={name} className="font-normal">

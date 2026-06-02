@@ -3,7 +3,8 @@
 import { AuthError } from "next-auth"
 import { redirect } from "next/navigation"
 
-import { loginSchema } from "@/features/auth/schemas"
+import { loginSchema, registerSchema } from "@/features/auth/schemas"
+import { registerUser } from "@/features/auth/services/register.service"
 import type { ActionResult } from "@/lib/actions/action-result"
 import { toActionResult } from "@/lib/actions/to-action-result"
 import { signIn } from "@/lib/auth/auth"
@@ -42,6 +43,37 @@ export async function loginAction(
 
   if (result.status === "success") {
     redirect(isSafeRedirectPath(callbackUrl) ? callbackUrl : "/account")
+  }
+  return result
+}
+
+// Rejestracja przez Credentials + auto-login.
+// - Walidacja Zod + utworzenie usera idą przez toActionResult: ZodError → "validation",
+//   AppError("EMAIL_ALREADY_EXISTS") (duplikat email, field: "email") → "business".
+// - Po utworzeniu konta logujemy od razu tym samym hasłem (signIn redirect:false ustawia cookie sesji).
+// - redirect("/account") jest poza toActionResult, więc NEXT_REDIRECT nie zostaje połknięty;
+//   Set-Cookie i 302 lecą jedną odpowiedzią — sesja aktywna zanim klient trafi na /account.
+export async function registerAction(input: unknown): Promise<ActionResult<null>> {
+  const result = await toActionResult(async () => {
+    const data = registerSchema.parse(input)
+
+    await registerUser({ email: data.email, password: data.password })
+
+    try {
+      await signIn("credentials", {
+        email: data.email,
+        password: data.password,
+        redirect: false,
+      })
+    } catch (err) {
+      if (err instanceof AuthError) throw new AppError("INVALID_CREDENTIALS")
+      throw err
+    }
+    return null
+  })
+
+  if (result.status === "success") {
+    redirect("/account")
   }
   return result
 }

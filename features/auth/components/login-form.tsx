@@ -1,24 +1,22 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowRight, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
 import { FormProvider, useForm } from "react-hook-form"
 import { toast } from "sonner"
 
 import { FormPasswordInput } from "@/components/form/form-password-input"
+import { FormSubmitButton } from "@/components/form/form-submit-button"
 import { FormTextInput } from "@/components/form/form-text-input"
-import { Button } from "@/components/ui/button"
 import { loginAction } from "@/features/auth/actions"
 import { OAuthButtons } from "@/features/auth/components/oauth-buttons"
 import { loginSchema, type LoginInput } from "@/features/auth/schemas"
 import { t } from "@/i18n/translate"
 
-export function LoginForm() {
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? undefined
-
+// callbackUrl czytamy z searchParams po stronie serwera (LoginPage) i przekazujemy propem —
+// dzięki temu formularz nie używa useSearchParams i nie wymaga otoczki <Suspense>, której pusty
+// fallback powodował migotanie treści przy wejściu na /login.
+export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   const methods = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     mode: "onSubmit",
@@ -80,24 +78,10 @@ export function LoginForm() {
               </Link>
             }
           />
-          <Button
-            type="submit"
-            size="lg"
-            className="mt-2 cursor-pointer"
-            disabled={methods.formState.isSubmitting}
-          >
-            {methods.formState.isSubmitting ? (
-              <>
-                <Loader2 className="animate-spin" />
-                {t("auth.login.submitting")}
-              </>
-            ) : (
-              <>
-                {t("auth.login.submit")}
-                <ArrowRight />
-              </>
-            )}
-          </Button>
+          <FormSubmitButton
+            label={t("auth.login.submit")}
+            submittingLabel={t("auth.login.submitting")}
+          />
         </form>
       </FormProvider>
 

@@ -2,23 +2,23 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control"
 import { t } from "@/i18n/translate"
 
-type AuthTab = "login" | "register"
+import { AuthCardTabs } from "./auth-card-tabs"
 
 type AuthCardProps = {
-  /** Która zakładka jest aktywna — podświetla przełącznik i ustawia nagłówek a11y. */
-  activeTab: AuthTab
   children: ReactNode
 }
 
-// Wspólna powłoka dla ekranów auth (login, w przyszłości rejestracja, reset hasła):
+// Wspólna powłoka dla ekranów auth (login, rejestracja, w przyszłości reset hasła):
 // branding + podtytuł, karta shadcn z przełącznikiem zakładek na górze oraz stopka.
-// Reużywalna — strony dokładają tylko swoją treść jako children.
-export function AuthCard({ activeTab, children }: AuthCardProps) {
+// Renderowana raz w layoucie grupy (auth) — przy zmianie zakładki swapuje się tylko `children`
+// (formularz), powłoka nie remountuje się, co eliminuje migotanie.
+export function AuthCard({ children }: AuthCardProps) {
   return (
-    <section className="flex flex-1 items-center justify-center px-4 py-12">
+    // items-start (nie items-center): kotwiczymy kartę do góry, żeby różnica wysokości
+    // formularzy login/rejestracja nie przesuwała jej w pionie przy zmianie zakładki.
+    <section className="flex flex-1 items-start justify-center px-4 py-12">
       <div className="w-full max-w-[520px]">
         <div className="mb-8 text-center">
           <Link
@@ -33,18 +33,7 @@ export function AuthCard({ activeTab, children }: AuthCardProps) {
 
         <Card>
           <CardContent className="flex flex-col gap-6">
-            <h1 className="sr-only">
-              {activeTab === "login" ? t("auth.tabs.signIn") : t("auth.tabs.createAccount")}
-            </h1>
-
-            <SegmentedControl>
-              <SegmentedControlItem asChild active={activeTab === "login"}>
-                <Link href="/login">{t("auth.tabs.signIn")}</Link>
-              </SegmentedControlItem>
-              <SegmentedControlItem asChild active={activeTab === "register"}>
-                <Link href="/register">{t("auth.tabs.createAccount")}</Link>
-              </SegmentedControlItem>
-            </SegmentedControl>
+            <AuthCardTabs />
 
             {children}
           </CardContent>
