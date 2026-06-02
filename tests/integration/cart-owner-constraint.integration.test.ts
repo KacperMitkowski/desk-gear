@@ -7,13 +7,22 @@ import { prisma } from "@/lib/db/prisma"
 // Weryfikuje review CodeRabbit (#32) — odrzucenie obu błędnych stanów (oba NULL, oba ustawione).
 
 const TEST_EMAIL = "cart-owner-constraint@desk-gear.test"
+const GUEST_TOKEN = "tok-guest-only"
 const CONSTRAINT = /cart_exactly_one_owner/
 
 let testUserId: string
 const createdCartIds: string[] = []
 
-beforeAll(async () => {
+// Sprząta po sobie ORAZ po ewentualnym przerwanym wcześniejszym przebiegu:
+// koszyk usera kasuje kaskada przy usunięciu usera, ale koszyk-sierota gościa (bez usera)
+// musimy usunąć po guest_token — inaczej kolejny run pada na unique violation (P2002).
+async function purgeTestData() {
+  await prisma.cart.deleteMany({ where: { guestToken: { in: [GUEST_TOKEN] } } })
   await prisma.user.deleteMany({ where: { email: TEST_EMAIL } })
+}
+
+beforeAll(async () => {
+  await purgeTestData()
   const user = await prisma.user.create({
     data: { email: TEST_EMAIL, passwordHash: "test-not-a-real-hash" },
   })
@@ -28,7 +37,7 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  await prisma.user.deleteMany({ where: { email: TEST_EMAIL } })
+  await purgeTestData()
   await prisma.$disconnect()
 })
 
@@ -44,10 +53,10 @@ describe("cart_exactly_one_owner (DB CHECK)", () => {
   })
 
   it("akceptuje koszyk gościa (tylko guest_token)", async () => {
-    const cart = await prisma.cart.create({ data: { guestToken: "tok-guest-only" } })
+    const cart = await prisma.cart.create({ data: { guestToken: GUEST_TOKEN } })
     createdCartIds.push(cart.id)
     expect(cart.userId).toBeNull()
-    expect(cart.guestToken).toBe("tok-guest-only")
+    expect(cart.guestToken).toBe(GUEST_TOKEN)
   })
 
   it("akceptuje koszyk użytkownika (tylko user_id)", async () => {
