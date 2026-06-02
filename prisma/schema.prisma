@@ -67,3 +67,73 @@ model VerificationToken {
   @@unique([identifier, token])
   @@map("verification_token")
 }
+
+// === Katalog ===
+// DB-level CHECK constraints (zarządzane przez migration.sql, nie schema.prisma):
+//   - product_variant_stock_quantity_nonneg: stock_quantity >= 0
+//   - product_variant_price_gross_positive:  price_gross > 0
+// Aplikacja waliduje w Zod; CHECK to defense-in-depth (ARCHITECTURE 5.4).
+
+model Category {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  slug        String     @unique
+  name        String
+  description String?    @db.Text
+  parentId    String?    @map("parent_id") @db.Uuid
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+
+  @@index([parentId])
+  @@map("category")
+}
+
+model Product {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  slug        String   @unique
+  name        String
+  description String   @db.Text
+  brand       String?
+  categoryId  String   @map("category_id") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category Category         @relation(fields: [categoryId], references: [id])
+  images   ProductImage[]
+  variants ProductVariant[]
+
+  @@index([categoryId, isActive])
+  @@index([brand])
+  @@index([isFeatured, isActive])
+  @@map("product")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  path      String
+  alt       String
+  position  Int     @default(0)
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_image")
+}
+
+model ProductVariant {
+  id            String  @id @default(uuid(7)) @db.Uuid
+  productId     String  @map("product_id") @db.Uuid
+  sku           String  @unique
+  attributes    Json    @db.JsonB
+  priceGross    Decimal @map("price_gross") @db.Decimal(10, 2)
+  stockQuantity Int     @default(0) @map("stock_quantity")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_variant")
+}
