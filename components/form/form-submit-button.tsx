@@ -16,6 +16,7 @@ type FormSubmitButtonProps = {
 export function FormSubmitButton({
   label,
   submittingLabel,
+  icon,
   className,
   size = "lg",
   ...props
@@ -38,7 +39,7 @@ export function FormSubmitButton({
         </>
       ) : (
         <>
-          {props?.icon ? props.icon : null}
+          {icon ?? null}
           {label}
         </>
       )}
