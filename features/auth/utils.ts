@@ -11,3 +11,12 @@ export function isPrismaErrorCode(err: unknown, code: string): boolean {
     (err as { code: unknown }).code === code
   )
 }
+
+// Akceptujemy tylko ścieżki względne ("/foo/bar"). Odrzucamy protocol-relative URL ("//evil.com")
+// i wszystkie absolutne URL-e — inaczej atakujący mógłby podać `?callbackUrl=https://evil.com`
+// i wykorzystać formularz logowania jako open redirect (CWE-601). Walidacja MUSI być na serwerze:
+// klient jest źródłem nieufnego inputu, nie można mu ufać że callbackUrl jest „nasz".
+export function isSafeRedirectPath(url: string | undefined): url is string {
+  if (!url) return false
+  return url.startsWith("/") && !url.startsWith("//")
+}

@@ -14,7 +14,7 @@ import { toActionResult } from "@/lib/actions/to-action-result"
 import { signIn } from "@/lib/auth/auth"
 import { AppError } from "@/lib/errors/app-error"
 import { ROUTES } from "@/lib/routes"
-import { isPrismaErrorCode } from "./utils"
+import { isPrismaErrorCode, isSafeRedirectPath } from "./utils"
 import { AuthSuccess } from "./types"
 
 export async function loginAction(
@@ -29,7 +29,7 @@ export async function loginAction(
       if (err instanceof AuthError) throw new AppError("INVALID_CREDENTIALS")
       throw err
     }
-    return { redirectTo: callbackUrl ? callbackUrl : ROUTES.ACCOUNT }
+    return { redirectTo: isSafeRedirectPath(callbackUrl) ? callbackUrl : ROUTES.ACCOUNT }
   })
 }
 

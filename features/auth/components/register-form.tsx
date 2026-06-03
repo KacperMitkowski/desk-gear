@@ -31,11 +31,7 @@ export function RegisterForm() {
     if (result.status === "success") {
       toast.success(t("auth.register.success"))
       router.push(result.data.redirectTo)
-      // Po `router.push` trzymamy onSubmit pending, inaczej RHF zresetuje `isSubmitting` do
-      // false zanim Next zdąży zacząć render /login i przycisk submit przez ~chwilę wygląda na
-      // klikalny. Promise rozwiązuje się dopiero przy unmount komponentu po nawigacji.
-      await new Promise<never>(() => {})
-      return // unreachable; TS potrzebuje tego do narrowingu `result` poniżej.
+      return
     }
 
     const { error } = result

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { isPrismaErrorCode } from "./utils"
+import { isPrismaErrorCode, isSafeRedirectPath } from "./utils"
 
 describe("isPrismaErrorCode", () => {
   it("zwraca true dla obiektu Prisma z dokładnym kodem", () => {
@@ -38,5 +38,46 @@ describe("isPrismaErrorCode", () => {
   it("działa na instancji Error z dodanym polem code (case z natywnymi błędami node)", () => {
     const err = Object.assign(new Error("boom"), { code: "P2002" })
     expect(isPrismaErrorCode(err, "P2002")).toBe(true)
+  })
+})
+
+describe("isSafeRedirectPath", () => {
+  it("akceptuje ścieżki względne zaczynające się od /", () => {
+    expect(isSafeRedirectPath("/account")).toBe(true)
+    expect(isSafeRedirectPath("/account/orders/123")).toBe(true)
+    expect(isSafeRedirectPath("/")).toBe(true)
+  })
+
+  it("odrzuca undefined / pusty string (brak callbackUrl)", () => {
+    expect(isSafeRedirectPath(undefined)).toBe(false)
+    expect(isSafeRedirectPath("")).toBe(false)
+  })
+
+  it("odrzuca absolute URL-e (CWE-601: open redirect na cudzą domenę)", () => {
+    expect(isSafeRedirectPath("https://evil.com/steal")).toBe(false)
+    expect(isSafeRedirectPath("http://evil.com")).toBe(false)
+    expect(isSafeRedirectPath("ftp://evil.com")).toBe(false)
+    expect(isSafeRedirectPath("javascript:alert(1)")).toBe(false)
+  })
+
+  it("odrzuca protocol-relative URL (//evil.com — przeglądarka traktuje to jak https://evil.com)", () => {
+    expect(isSafeRedirectPath("//evil.com")).toBe(false)
+    expect(isSafeRedirectPath("//evil.com/steal")).toBe(false)
+  })
+
+  it("odrzuca ścieżki bez wiodącego / (nie wiemy gdzie nas wyśle przeglądarka)", () => {
+    expect(isSafeRedirectPath("account")).toBe(false)
+    expect(isSafeRedirectPath("evil.com")).toBe(false)
+  })
+
+  it("acts as type guard — narrowing url do string", () => {
+    const url: string | undefined = "/account"
+    if (isSafeRedirectPath(url)) {
+      // Sprawdzenie typu kompilacyjnie — url ma już typ string, nie string | undefined.
+      const _: string = url
+      expect(_).toBe("/account")
+    } else {
+      throw new Error("powinno przejść")
+    }
   })
 })

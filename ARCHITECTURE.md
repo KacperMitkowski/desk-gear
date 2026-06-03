@@ -2861,7 +2861,7 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 - [ ] Strona `/register`
 - [ ] Mapowanie Prisma P2002 → `AppError("EMAIL_ALREADY_EXISTS")` przez ducktyping (`features/auth/utils.ts:isPrismaErrorCode`)
 - [ ] Integration test: duplikat email → `EMAIL_ALREADY_EXISTS`
-- **DoD**: można zarejestrować nowego usera, redirect na `/login` z toastem sukcesu (bez auto-loginu).
+- **DoD**: można zarejestrować nowego usera, redirect na `/login` z toastem sukcesu. Świadoma rezygnacja z auto-loginu (zmiana względem pierwotnego AC w issue #24): pierwsze logowanie wymaga ręcznego wpisania hasła — utrwala je w pamięci usera, redukuje phishing-friendly „magic" zachowania i upraszcza flow (`registerAction` nie musi wołać `signIn`).
 
 **E6.3: Forgot password**
 

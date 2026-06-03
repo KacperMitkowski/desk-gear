@@ -70,4 +70,32 @@ describe("loginAction", () => {
       expect(result.data.redirectTo).toBe("/account")
     }
   })
+
+  it("niebezpieczny callbackUrl (absolute URL) → redirectTo wraca do /account (anti-open-redirect)", async () => {
+    mockSignIn.mockResolvedValue(undefined as never)
+
+    const result = await loginAction(
+      { email: "admin@desk-gear.local", password: "ChangeMe1234!" },
+      "https://evil.com/steal",
+    )
+
+    expect(result.status).toBe("success")
+    if (result.status === "success") {
+      expect(result.data.redirectTo).toBe("/account")
+    }
+  })
+
+  it("protocol-relative callbackUrl (//evil.com) → redirectTo wraca do /account", async () => {
+    mockSignIn.mockResolvedValue(undefined as never)
+
+    const result = await loginAction(
+      { email: "admin@desk-gear.local", password: "ChangeMe1234!" },
+      "//evil.com/steal",
+    )
+
+    expect(result.status).toBe("success")
+    if (result.status === "success") {
+      expect(result.data.redirectTo).toBe("/account")
+    }
+  })
 })
