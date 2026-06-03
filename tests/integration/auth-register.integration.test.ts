@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-// Mockujemy bazę — sprawdzamy pipeline akcji (walidacja → service → signIn → redirect), nie realny zapis.
-// prisma.user.create jest sterowane per test (zwraca usera albo rzuca P2002).
+// Mockujemy bazę — sprawdzamy pipeline akcji (walidacja → service → redirectTo /login), nie realny zapis.
+// prisma.user.create jest sterowane per test (zwraca usera albo rzuca P2002). Rejestracja NIE
+// loguje usera automatycznie — signIn po sukcesie nie powinno być wołane.
 vi.mock("@/lib/db/prisma", () => ({
   prisma: { user: { create: vi.fn() } },
 }))
@@ -19,15 +20,6 @@ vi.mock("next-auth", () => {
   }
   return { AuthError }
 })
-
-// redirect() przy sukcesie rzuca NEXT_REDIRECT — mockujemy je rozpoznawalnym błędem.
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn((url: string) => {
-    throw new Error(`REDIRECT:${url}`)
-  }),
-}))
-
-import { redirect } from "next/navigation"
 
 import { registerAction } from "@/features/auth/actions"
 import { signIn } from "@/lib/auth/auth"
@@ -50,7 +42,7 @@ describe("registerAction", () => {
     mockSignIn.mockReset()
   })
 
-  it("duplikat email (P2002) → błąd business EMAIL_ALREADY_EXISTS przy polu email, signIn nie wołane", async () => {
+  it("duplikat email (P2002) → błąd business EMAIL_ALREADY_EXISTS bez fieldErrors, signIn nie wołane", async () => {
     mockCreate.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
         code: "P2002",
@@ -64,24 +56,46 @@ describe("registerAction", () => {
     if (result.status === "error") {
       expect(result.error.type).toBe("business")
       expect(result.error.message).toBe("errors.EMAIL_ALREADY_EXISTS")
-      expect(result.error.fieldErrors?.[0]?.path).toEqual(["email"])
+      // registerAction rzuca `new AppError("EMAIL_ALREADY_EXISTS")` bez field-a — więc
+      // fieldErrors jest undefined. Front pokaże tylko toast, bez inline pod inputem.
+      expect(result.error.fieldErrors).toBeUndefined()
     }
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
-  it("poprawne dane → user utworzony, auto-login signIn(redirect:false) + redirect na /account", async () => {
-    mockCreate.mockResolvedValue({ id: "u1", email: VALID_INPUT.email } as never)
-    mockSignIn.mockResolvedValue(undefined as never)
+  // Pilnujemy że filtr w registerAction zawęża się WYŁĄCZNIE do P2002. Każdy inny błąd
+  // Prismy (np. P1001 = brak DB) musi lecieć przez catch-all w toActionResult — bez mapowania
+  // na business, bez fieldError pod emailem (bo to nie jest konflikt unikalności, tylko infra).
+  it("inny błąd Prismy (np. P1001 — brak DB) → type 'server' + traceId, nie mapowany na business", async () => {
+    mockCreate.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Can't reach database server", {
+        code: "P1001",
+        clientVersion: "test",
+      }),
+    )
 
-    await expect(registerAction(VALID_INPUT)).rejects.toThrow("REDIRECT:/account")
+    const result = await registerAction(VALID_INPUT)
+
+    expect(result.status).toBe("error")
+    if (result.status === "error") {
+      expect(result.error.type).toBe("server")
+      expect(result.error.message).toBe("errors.unexpected")
+      expect(typeof result.error.traceId).toBe("string")
+      expect(result.error.fieldErrors).toBeUndefined()
+    }
+  })
+
+  it("poprawne dane → user utworzony, BEZ auto-loginu, redirectTo /login", async () => {
+    mockCreate.mockResolvedValue({ id: "u1", email: VALID_INPUT.email } as never)
+
+    const result = await registerAction(VALID_INPUT)
 
     expect(mockCreate).toHaveBeenCalledOnce()
-    expect(mockSignIn).toHaveBeenCalledWith("credentials", {
-      email: VALID_INPUT.email,
-      password: VALID_INPUT.password,
-      redirect: false,
-    })
-    expect(redirect).toHaveBeenCalledWith("/account")
+    expect(mockSignIn).not.toHaveBeenCalled()
+    expect(result.status).toBe("success")
+    if (result.status === "success") {
+      expect(result.data.redirectTo).toBe("/login")
+    }
   })
 
   it("błąd walidacji (hasła różne) → type validation, user nie tworzony", async () => {

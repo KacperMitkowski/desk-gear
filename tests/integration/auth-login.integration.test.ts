@@ -18,15 +18,7 @@ vi.mock("next-auth", () => {
   return { AuthError }
 })
 
-// redirect() przy sukcesie rzuca NEXT_REDIRECT — mockujemy je rozpoznawalnym błędem.
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn((url: string) => {
-    throw new Error(`REDIRECT:${url}`)
-  }),
-}))
-
 import { AuthError } from "next-auth"
-import { redirect } from "next/navigation"
 
 import { loginAction } from "@/features/auth/actions"
 import { signIn } from "@/lib/auth/auth"
@@ -60,18 +52,22 @@ describe("loginAction", () => {
     }
   })
 
-  it("poprawne dane → signIn(redirect:false) + redirect na callbackUrl", async () => {
+  it("poprawne dane → signIn(redirect:false) + redirectTo na callbackUrl", async () => {
     mockSignIn.mockResolvedValue(undefined as never)
 
-    await expect(
-      loginAction({ email: "admin@desk-gear.local", password: "ChangeMe1234!" }, "/account"),
-    ).rejects.toThrow("REDIRECT:/account")
+    const result = await loginAction(
+      { email: "admin@desk-gear.local", password: "ChangeMe1234!" },
+      "/account",
+    )
 
     expect(mockSignIn).toHaveBeenCalledWith("credentials", {
       email: "admin@desk-gear.local",
       password: "ChangeMe1234!",
       redirect: false,
     })
-    expect(redirect).toHaveBeenCalledWith("/account")
+    expect(result.status).toBe("success")
+    if (result.status === "success") {
+      expect(result.data.redirectTo).toBe("/account")
+    }
   })
 })

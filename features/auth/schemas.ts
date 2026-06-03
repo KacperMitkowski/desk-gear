@@ -5,19 +5,19 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-export type LoginInput = z.infer<typeof loginSchema>
+export type LoginFormValues = z.infer<typeof loginSchema>
 
-// Polityka hasła: min. 12 znaków (spójnie z ADMIN_SEED_PASSWORD) + złożoność.
-// Wszystkie regexy złożoności dają kod `invalid_format` — formularz pokrywa je jednym
-// override'em `passwordComplexity`; długość to `too_small`. Niezgodność haseł i brak akceptacji
-// regulaminu to refine'y o kodzie `custom` (na confirmPassword / acceptTerms). acceptTerms jest
-// boolean (nie literal), by defaultValues w RHF mógł startować z false bez konfliktu typów.
 const PASSWORD_MIN_LENGTH = 12
 
 export const registerSchema = z
   .object({
     email: z.email(),
-    password: z.string().min(PASSWORD_MIN_LENGTH).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/),
+    password: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH)
+      .regex(/[a-z]/) // wymaga przynajmniej jednej małej litery (a-z)
+      .regex(/[A-Z]/) // wymaga przynajmniej jednej wielkiej litery (A-Z)
+      .regex(/[0-9]/), // wymaga przynajmniej jednej cyfry (0-9)
     confirmPassword: z.string(),
     acceptTerms: z.boolean().refine((val) => val === true),
   })
@@ -25,4 +25,4 @@ export const registerSchema = z
     path: ["confirmPassword"],
   })
 
-export type RegisterInput = z.infer<typeof registerSchema>
+export type RegisterFormValues = z.infer<typeof registerSchema>

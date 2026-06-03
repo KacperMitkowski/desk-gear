@@ -1,22 +1,18 @@
 "use client"
 
-import { ArrowRight, Loader2 } from "lucide-react"
-import type { ComponentProps } from "react"
+import { Loader2 } from "lucide-react"
+import type { ComponentProps, ReactNode } from "react"
 import { useFormContext, useFormState } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type FormSubmitButtonProps = {
-  /** Etykieta w stanie spoczynku (obok strzałki). */
   label: string
-  /** Etykieta w trakcie wysyłki (obok spinnera). */
   submittingLabel: string
+  icon?: ReactNode
 } & Omit<ComponentProps<typeof Button>, "type" | "disabled" | "children">
 
-// Przycisk submit dla formularzy RHF: subskrybuje `isSubmitting` z kontekstu formularza
-// (useFormState), blokuje się i pokazuje spinner w trakcie wysyłki. Musi być renderowany
-// wewnątrz <FormProvider>.
 export function FormSubmitButton({
   label,
   submittingLabel,
@@ -42,8 +38,8 @@ export function FormSubmitButton({
         </>
       ) : (
         <>
+          {props?.icon ? props.icon : null}
           {label}
-          <ArrowRight />
         </>
       )}
     </Button>

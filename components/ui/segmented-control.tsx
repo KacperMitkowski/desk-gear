@@ -12,7 +12,10 @@ function SegmentedControl({ className, ...props }: React.ComponentProps<"div">) 
       role="group"
       data-slot="segmented-control"
       className={cn(
-        "grid w-full auto-cols-fr grid-flow-col gap-1 rounded-lg bg-muted p-1",
+        // bg: w dark zostawiamy `bg-muted` (działa), w light tło muted (95.9%) za mało różni się
+        // od card (98%) → tabsy nikły. `bg-foreground/5` daje 5% przyciemnienia względem
+        // foregroundu — niezależne od konkretnej palety, automatycznie skaluje się z motywem.
+        "grid w-full auto-cols-fr grid-flow-col gap-1 rounded-lg bg-foreground/5 p-1 dark:bg-muted",
         className,
       )}
       {...props}

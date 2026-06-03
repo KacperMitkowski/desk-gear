@@ -1,5 +1,4 @@
 {
-  "subtitle": "Zaloguj się, aby kontynuować, lub utwórz nowe konto",
   "footer": {
     "prefix": "Aktualna wersja",
     "terms": "Regulaminu DeskGear",
@@ -12,6 +11,7 @@
   },
   "login": {
     "title": "Zaloguj się",
+    "subtitle": "Zaloguj się, aby kontynuować zakupy",
     "email": "Adres email",
     "emailPlaceholder": "Wprowadź adres email",
     "password": "Hasło",
@@ -20,7 +20,7 @@
     "submitting": "Logowanie…",
     "forgotPassword": "Przypomnij hasło",
     "noAccount": "Nie masz konta?",
-    "createAccount": "Utwórz je",
+    "createAccount": "Zarejestruj się",
     "orContinueWith": "lub kontynuuj z"
   },
   "errors": {

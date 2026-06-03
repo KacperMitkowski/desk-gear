@@ -15,13 +15,10 @@ import {
 type FormTextInputProps<T extends FieldValues> = {
   name: Path<T>
   label: string
-  /** Dodatkowy opis pod inputem (np. wymogi dotyczące hasła, format wartości). */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>
-  /** Dodatkowa treść w wierszu etykiety, wyrównana do prawej (np. link "Przypomnij hasło"). */
   labelAction?: ReactNode
-  /** Element renderowany absolutnie wewnątrz inputa (np. toggle widoczności hasła). */
   endAdornment?: ReactNode
 } & Omit<ComponentProps<typeof Input>, "name">
 

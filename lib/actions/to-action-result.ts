@@ -6,7 +6,7 @@ import { extractParams } from "@/lib/validation/extract-params"
 import type { ActionResult, ApiErrorResponse } from "./action-result"
 
 // Opakowuje logikę Server Action i mapuje wyjątki na ustrukturyzowany ActionResult:
-//   ZodError → validation, AppError → auth/business, cokolwiek innego → server (z traceId).
+// ZodError → validation, AppError → auth/business, cokolwiek innego → server (z traceId).
 export async function toActionResult<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
     const data = await fn()

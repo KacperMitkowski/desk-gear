@@ -1,7 +1,9 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
+import { UserPlus } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { FormProvider, useForm } from "react-hook-form"
 import { toast } from "sonner"
 
@@ -10,44 +12,42 @@ import { FormPasswordInput } from "@/components/form/form-password-input"
 import { FormSubmitButton } from "@/components/form/form-submit-button"
 import { FormTextInput } from "@/components/form/form-text-input"
 import { registerAction } from "@/features/auth/actions"
+import { AuthSwitchLink } from "@/features/auth/components/auth-switch-link"
 import { OAuthButtons } from "@/features/auth/components/oauth-buttons"
-import { registerSchema, type RegisterInput } from "@/features/auth/schemas"
+import { registerSchema, type RegisterFormValues } from "@/features/auth/schemas"
 import { t } from "@/i18n/translate"
 
 export function RegisterForm() {
-  const methods = useForm<RegisterInput>({
+  const router = useRouter()
+  const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: "onSubmit",
     defaultValues: { email: "", password: "", confirmPassword: "", acceptTerms: false },
   })
 
-  async function onSubmit(values: RegisterInput) {
+  async function onSubmit(values: RegisterFormValues) {
     const result = await registerAction(values)
 
-    // Sukces = serwer rzucił redirect i Next nawiguje na /account — tu trafiamy wyłącznie z błędem.
-    if (result.status !== "error") return
+    if (result.status === "success") {
+      toast.success(t("auth.register.success"))
+      router.push(result.data.redirectTo)
+      // Po `router.push` trzymamy onSubmit pending, inaczej RHF zresetuje `isSubmitting` do
+      // false zanim Next zdąży zacząć render /login i przycisk submit przez ~chwilę wygląda na
+      // klikalny. Promise rozwiązuje się dopiero przy unmount komponentu po nawigacji.
+      await new Promise<never>(() => {})
+      return // unreachable; TS potrzebuje tego do narrowingu `result` poniżej.
+    }
 
     const { error } = result
     switch (error.type) {
       case "validation":
-        // Safety-net: walidację zwykle łapie klient (zodResolver). Komunikaty pól są JSON-em
-        // {code, params} — FormTextInput zresolwuje je przez i18n.
         for (const fieldError of error.fieldErrors ?? []) {
-          const path = String(fieldError.path[0]) as keyof RegisterInput
-          methods.setError(path, { message: fieldError.message })
+          const path = String(fieldError.path[0]) as keyof RegisterFormValues
+          form.setError(path, { message: fieldError.message })
         }
         break
       case "business":
-        // EMAIL_ALREADY_EXISTS niesie fieldError z path ["email"] — pokazujemy gotowy
-        // (przetłumaczony) komunikat przy polu email; w razie braku pola — toast.
-        if (error.fieldErrors?.length) {
-          for (const fieldError of error.fieldErrors) {
-            const path = String(fieldError.path[0]) as keyof RegisterInput
-            methods.setError(path, { message: t(error.message) })
-          }
-        } else {
-          toast.error(t(error.message))
-        }
+        toast.error(t(error.message))
         break
       case "server":
         toast.error(t(error.message), {
@@ -61,9 +61,9 @@ export function RegisterForm() {
 
   return (
     <div className="flex flex-col gap-5">
-      <FormProvider {...methods}>
-        <form onSubmit={methods.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
-          <FormTextInput<RegisterInput>
+      <FormProvider {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
+          <FormTextInput<RegisterFormValues>
             name="email"
             type="email"
             label={t("auth.register.email")}
@@ -74,7 +74,7 @@ export function RegisterForm() {
               invalid_type: t("auth.register.errors.emailRequired"),
             }}
           />
-          <FormPasswordInput<RegisterInput>
+          <FormPasswordInput<RegisterFormValues>
             name="password"
             label={t("auth.register.password")}
             placeholder={t("auth.register.passwordPlaceholder")}
@@ -84,7 +84,7 @@ export function RegisterForm() {
               invalid_format: t("auth.register.errors.passwordComplexity"),
             }}
           />
-          <FormPasswordInput<RegisterInput>
+          <FormPasswordInput<RegisterFormValues>
             name="confirmPassword"
             label={t("auth.register.confirmPassword")}
             placeholder={t("auth.register.confirmPasswordPlaceholder")}
@@ -93,7 +93,7 @@ export function RegisterForm() {
               custom: t("auth.register.errors.passwordMismatch"),
             }}
           />
-          <FormCheckbox<RegisterInput>
+          <FormCheckbox<RegisterFormValues>
             name="acceptTerms"
             label={
               <>
@@ -104,13 +104,6 @@ export function RegisterForm() {
                 >
                   {t("auth.register.acceptTermsLink")}
                 </Link>{" "}
-                {t("auth.register.acceptTermsConnector")}{" "}
-                <Link
-                  href="/privacy"
-                  className="text-primary underline underline-offset-4 hover:text-primary/80"
-                >
-                  {t("auth.register.acceptPrivacyLink")}
-                </Link>
               </>
             }
             errorMessages={{
@@ -120,18 +113,14 @@ export function RegisterForm() {
           <FormSubmitButton
             label={t("auth.register.submit")}
             submittingLabel={t("auth.register.submitting")}
+            icon={<UserPlus />}
           />
         </form>
       </FormProvider>
 
       <OAuthButtons />
 
-      <p className="text-center text-sm text-muted-foreground">
-        {t("auth.register.haveAccount")}{" "}
-        <Link href="/login" className="text-primary underline underline-offset-4">
-          {t("auth.register.signIn")}
-        </Link>
-      </p>
+      <AuthSwitchLink />
     </div>
   )
 }

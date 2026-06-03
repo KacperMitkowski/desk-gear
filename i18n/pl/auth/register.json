@@ -1,6 +1,7 @@
 {
   "register": {
     "title": "Utwórz konto",
+    "subtitle": "Załóż konto i zacznij robić zakupy",
     "email": "Adres email",
     "emailPlaceholder": "Wprowadź adres email",
     "password": "Hasło",
@@ -15,6 +16,7 @@
     "submitting": "Tworzenie konta…",
     "haveAccount": "Masz już konto?",
     "signIn": "Zaloguj się",
+    "success": "Konto utworzone — możesz się teraz zalogować",
     "errors": {
       "email": "Nieprawidłowy adres email",
       "emailRequired": "Email jest wymagany",

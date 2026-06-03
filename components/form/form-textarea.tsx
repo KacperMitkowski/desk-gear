@@ -15,7 +15,6 @@ import {
 type FormTextareaProps<T extends FieldValues> = {
   name: Path<T>
   label: string
-  /** Dodatkowy opis pod polem (np. limit znaków, format). */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>

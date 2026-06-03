@@ -14,9 +14,7 @@ import {
 
 type FormCheckboxProps<T extends FieldValues> = {
   name: Path<T>
-  /** Treść etykiety obok pola — ReactNode, bo regulamin zwykle zawiera link. */
   label: ReactNode
-  /** Dodatkowy opis pod kontrolką (np. konsekwencje zaznaczenia). */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>

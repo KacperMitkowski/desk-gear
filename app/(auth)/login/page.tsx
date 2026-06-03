@@ -2,9 +2,8 @@ import { redirect } from "next/navigation"
 
 import { LoginForm } from "@/features/auth/components/login-form"
 import { auth } from "@/lib/auth/auth"
+import { AuthCardTabs } from "@/features/auth/components/auth-card-tabs"
 
-// Zalogowanych odsyłamy na /account — manualne wejście /login dla aktywnej sesji nie ma
-// sensu (proxy.ts puszcza /login zawsze, bo to publiczna trasa).
 export default async function LoginPage({
   searchParams,
 }: {
@@ -15,5 +14,10 @@ export default async function LoginPage({
 
   const { callbackUrl } = await searchParams
 
-  return <LoginForm callbackUrl={callbackUrl} />
+  return (
+    <>
+      <AuthCardTabs />
+      <LoginForm callbackUrl={callbackUrl} />
+    </>
+  )
 }
