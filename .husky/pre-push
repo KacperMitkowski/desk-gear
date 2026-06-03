@@ -8,4 +8,4 @@ elif ! echo "$BRANCH" | grep -qE '^(feature|hotfix|refactor|test|docs|chore)/tas
   echo "Example: feature/task.13"
   exit 1
 fi
-npm run typecheck && npm run test:unit
+npm run typecheck && npm test
