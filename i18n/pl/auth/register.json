@@ -1,0 +1,29 @@
+{
+  "register": {
+    "title": "Utwórz konto",
+    "subtitle": "Załóż konto i zacznij robić zakupy",
+    "email": "Adres email",
+    "emailPlaceholder": "Wprowadź adres email",
+    "password": "Hasło",
+    "passwordPlaceholder": "Utwórz hasło",
+    "confirmPassword": "Powtórz hasło",
+    "confirmPasswordPlaceholder": "Wprowadź hasło ponownie",
+    "acceptTerms": "Akceptuję",
+    "acceptTermsLink": "Regulamin DeskGear",
+    "acceptTermsConnector": "oraz",
+    "acceptPrivacyLink": "Politykę ochrony prywatności",
+    "submit": "Utwórz konto",
+    "submitting": "Tworzenie konta…",
+    "haveAccount": "Masz już konto?",
+    "signIn": "Zaloguj się",
+    "success": "Konto utworzone — możesz się teraz zalogować",
+    "errors": {
+      "email": "Nieprawidłowy adres email",
+      "emailRequired": "Email jest wymagany",
+      "passwordTooShort": "Hasło musi mieć co najmniej 12 znaków",
+      "passwordComplexity": "Hasło musi zawierać wielką literę, małą literę i cyfrę",
+      "passwordMismatch": "Hasła muszą być takie same",
+      "acceptTermsRequired": "Musisz zaakceptować regulamin"
+    }
+  }
+}

@@ -1,35 +1,27 @@
 "use server"
 
 import { AuthError } from "next-auth"
-import { redirect } from "next/navigation"
 
-import { loginSchema } from "@/features/auth/schemas"
+import {
+  LoginFormValues,
+  loginSchema,
+  RegisterFormValues,
+  registerSchema,
+} from "@/features/auth/schemas"
+import { registerUser } from "@/features/auth/services/register.service"
 import type { ActionResult } from "@/lib/actions/action-result"
 import { toActionResult } from "@/lib/actions/to-action-result"
 import { signIn } from "@/lib/auth/auth"
 import { AppError } from "@/lib/errors/app-error"
+import { ROUTES } from "@/lib/routes"
+import { isPrismaErrorCode, isSafeRedirectPath } from "./utils"
+import { AuthSuccess } from "./types"
 
-// Akceptujemy tylko ścieżki względne ("/foo/bar"). Odrzucamy protocol-relative URL ("//evil.com")
-// i wszystkie absolutne URL-e — inaczej atakujący mógłby podać `?callbackUrl=https://evil.com`
-// i wykorzystać formularz logowania jako open redirect.
-function isSafeRedirectPath(url: string | undefined): url is string {
-  if (!url) return false
-  return url.startsWith("/") && !url.startsWith("//")
-}
-
-// Logowanie przez Credentials.
-// - Walidacja + signIn idą przez toActionResult: ZodError → "validation",
-//   AuthError → AppError("INVALID_CREDENTIALS") → "auth" (ten sam komunikat dla złego emaila
-//   i hasła — nie zdradzamy istnienia konta).
-// - signIn z redirect:false sam NIE przekierowuje, ale ustawia cookie sesji w odpowiedzi.
-//   Po sukcesie robimy redirect() PO STRONIE SERWERA — Set-Cookie i 302 lecą jedną odpowiedzią,
-//   więc sesja jest aktywna zanim klient trafi na /account (eliminuje wyścig i zawieszenie UI).
-//   redirect() jest wywołany poza toActionResult, więc NEXT_REDIRECT nie zostaje połknięty.
 export async function loginAction(
-  input: unknown,
+  input: LoginFormValues,
   callbackUrl?: string,
-): Promise<ActionResult<null>> {
-  const result = await toActionResult(async () => {
+): Promise<ActionResult<AuthSuccess>> {
+  return toActionResult(async () => {
     const data = loginSchema.parse(input)
     try {
       await signIn("credentials", { ...data, redirect: false })
@@ -37,11 +29,31 @@ export async function loginAction(
       if (err instanceof AuthError) throw new AppError("INVALID_CREDENTIALS")
       throw err
     }
-    return null
+    return { redirectTo: isSafeRedirectPath(callbackUrl) ? callbackUrl : ROUTES.ACCOUNT }
   })
+}
 
-  if (result.status === "success") {
-    redirect(isSafeRedirectPath(callbackUrl) ? callbackUrl : "/account")
-  }
-  return result
+// Rejestracja przez Credentials. NIE robimy auto-loginu — po `registerUser` redirect na
+// `/login`, user samodzielnie wpisuje hasło. To świadoma zmiana względem pierwotnego AC
+// issue #24 (rationale w ARCHITECTURE.md §E6.2). Jeśli AC ma kiedyś wrócić, dopisz `signIn`
+// poniżej i podmień redirect na `ROUTES.ACCOUNT`.
+//
+// Mapowanie błędów: P2002 → AppError("EMAIL_ALREADY_EXISTS") przez ducktyping. Inne błędy
+// Prismy (P1001 brak DB, itd.) lecą przez catch-all `toActionResult` → `server` + traceId.
+export async function registerAction(
+  input: RegisterFormValues,
+): Promise<ActionResult<AuthSuccess>> {
+  return toActionResult(async () => {
+    const data = registerSchema.parse(input)
+
+    try {
+      await registerUser({ email: data.email, password: data.password })
+    } catch (err) {
+      if (isPrismaErrorCode(err, "P2002")) {
+        throw new AppError("EMAIL_ALREADY_EXISTS")
+      }
+      throw err
+    }
+    return { redirectTo: ROUTES.LOGIN }
+  })
 }

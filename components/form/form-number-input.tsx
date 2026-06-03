@@ -15,7 +15,6 @@ import {
 type FormNumberInputProps<T extends FieldValues> = {
   name: Path<T>
   label: string
-  /** Dodatkowy opis pod inputem (np. zakres dozwolonych wartości). */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>
@@ -32,10 +31,8 @@ export function FormNumberInput<T extends FieldValues>({
 }: FormNumberInputProps<T>) {
   const { control } = useFormContext<T>()
   const { field, fieldState } = useController({ control, name })
-  // `value`/`onChange` remapujemy (liczba ↔ string inputa), resztę (ref, name, onBlur) spreadujemy.
   const { value, onChange, ...fieldProps } = field
   const hasError = !!fieldState.error
-  // fieldType "number" → komunikaty too_small/too_big/invalid_type biorą wariant liczbowy z i18n.
   const errorMsg = hasError
     ? resolveErrorMessage(fieldState.error?.message ?? "", "number", errorMessages, t)
     : undefined
@@ -54,7 +51,6 @@ export function FormNumberInput<T extends FieldValues>({
         inputMode="numeric"
         {...fieldProps}
         value={value ?? ""}
-        // Pusty input → undefined (Zod zgłosi invalid_type), w innym razie liczba (NaN zostawiamy Zodowi).
         onChange={(event) => {
           const raw = event.target.value
           onChange(raw === "" ? undefined : Number(raw))

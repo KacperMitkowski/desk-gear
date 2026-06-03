@@ -19,7 +19,6 @@ export function FormPasswordInput<T extends FieldValues>(props: FormPasswordInpu
 
   return (
     <FormTextInput
-      {...props}
       type={visible ? "text" : "password"}
       endAdornment={
         <Button
@@ -34,6 +33,7 @@ export function FormPasswordInput<T extends FieldValues>(props: FormPasswordInpu
           {visible ? <EyeOff /> : <Eye />}
         </Button>
       }
+      {...props}
     />
   )
 }

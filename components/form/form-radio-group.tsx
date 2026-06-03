@@ -15,7 +15,6 @@ import {
 export type RadioOption = {
   value: string
   label: ReactNode
-  /** Opcjonalny podtytuł pod etykietą wariantu (np. czas dostawy, cena). */
   description?: ReactNode
   disabled?: boolean
 }
@@ -24,7 +23,6 @@ type FormRadioGroupProps<T extends FieldValues> = {
   name: Path<T>
   label: string
   options: RadioOption[]
-  /** Dodatkowy opis pod całą grupą. */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>
@@ -42,7 +40,6 @@ export function FormRadioGroup<T extends FieldValues>({
 }: FormRadioGroupProps<T>) {
   const { control } = useFormContext<T>()
   const { field, fieldState } = useController({ control, name })
-  // `value`/`onChange`/`onBlur` mapujemy na API Radix RadioGroup, resztę (ref, name) spreadujemy.
   const { value, onChange, onBlur, ...fieldProps } = field
   const hasError = !!fieldState.error
   const errorMsg = hasError

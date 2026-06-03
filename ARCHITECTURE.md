@@ -195,6 +195,8 @@ Stosujemy **standardową praktykę Next.js App Router**:
 
 Kluczowa obserwacja: **service jest wspólnym wejściem** dla obu ścieżek. Niezależnie czy wywołuje go RSC (read) czy Server Action (write), logika biznesowa żyje w tym samym miejscu. Tylko obudowa różni się — `ActionResult<T>` dla mutacji, `throw` dla reads.
 
+**Wyjątek dla cienkich service**: gdy service jest praktycznie wrapperem na pojedynczy `prisma.x.create/update` (np. `features/auth/services/register.service.ts`), nie ma sensu wprowadzać osobnej warstwy repository — service trzymamy "płaski" i bez try/catch. Mapowanie błędów infry (np. `Prisma.P2002` → `AppError("EMAIL_ALREADY_EXISTS")`) odbywa się wtedy w Server Action przez helper `isPrismaErrorCode` z `features/auth/utils.ts` — ducktyping po polu `code` zamiast `instanceof`, bo pod Turbopack/HMR generowany klient ląduje w wielu module-layerach i tożsamości klas się rozjeżdżają (`err instanceof Prisma.PrismaClientKnownRequestError` zwraca wtedy `false` mimo poprawnego błędu).
+
 ### 3.2. Anatomia Server Action (wzorzec mutacji)
 
 Każda Server Action ma identyczną strukturę. To jest **kontrakt** — łatwiej refactorować, łatwiej testować, łatwiej generować boilerplate.
@@ -427,6 +429,7 @@ deskgear/
 │   │   ├── auth/               # Auth.js v5 config, requireRole, sesje
 │   │   ├── actions/            # ActionResult, toActionResult, helpers
 │   │   ├── errors/             # AppError, error codes, mapowanie
+│   │   ├── routes.ts           # centralna mapa ścieżek (ROUTES.LOGIN, ROUTES.ACCOUNT, ...)
 │   │   ├── validation/         # Zod error map, custom types
 │   │   ├── db/                 # prisma client singleton
 │   │   ├── cart/               # cart cookie helpers
@@ -2856,8 +2859,9 @@ Validacja przez `zod` na starcie aplikacji (`env.ts` z `@t3-oss/env-nextjs`).
 - [ ] Schema `registerSchema` z walidacją siły hasła
 - [ ] Server Action `registerAction`
 - [ ] Strona `/register`
+- [ ] Mapowanie Prisma P2002 → `AppError("EMAIL_ALREADY_EXISTS")` przez ducktyping (`features/auth/utils.ts:isPrismaErrorCode`)
 - [ ] Integration test: duplikat email → `EMAIL_ALREADY_EXISTS`
-- **DoD**: można zarejestrować nowego usera, auto-login
+- **DoD**: można zarejestrować nowego usera, redirect na `/login` z toastem sukcesu. Świadoma rezygnacja z auto-loginu (zmiana względem pierwotnego AC w issue #24): pierwsze logowanie wymaga ręcznego wpisania hasła — utrwala je w pamięci usera, redukuje phishing-friendly „magic" zachowania i upraszcza flow (`registerAction` nie musi wołać `signIn`).
 
 **E6.3: Forgot password**
 

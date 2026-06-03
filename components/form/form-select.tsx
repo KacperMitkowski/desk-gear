@@ -29,7 +29,6 @@ type FormSelectProps<T extends FieldValues> = {
   label: string
   options: SelectOption[]
   placeholder?: string
-  /** Dodatkowy opis pod kontrolką. */
   description?: ReactNode
   required?: boolean
   errorMessages?: Record<string, ErrorMessageOverride>
@@ -48,7 +47,6 @@ export function FormSelect<T extends FieldValues>({
 }: FormSelectProps<T>) {
   const { control } = useFormContext<T>()
   const { field, fieldState } = useController({ control, name })
-  // `value`/`onChange`/`onBlur` mapujemy na API Radix Select, resztę (ref, name) spreadujemy na trigger.
   const { value, onChange, onBlur, ...fieldProps } = field
   const hasError = !!fieldState.error
   const errorMsg = hasError
@@ -66,7 +64,6 @@ export function FormSelect<T extends FieldValues>({
       <Select
         value={value ?? ""}
         onValueChange={onChange}
-        // Radix wywołuje onOpenChange przy zamknięciu — domykamy nim "touched" dla trybu onBlur/onTouched.
         onOpenChange={(open) => {
           if (!open) onBlur()
         }}
