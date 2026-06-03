@@ -16,7 +16,7 @@
     "submitting": "Tworzenie konta…",
     "haveAccount": "Masz już konto?",
     "signIn": "Zaloguj się",
-    "success": "Konto utworzone — witamy w DeskGear!",
+    "success": "Konto utworzone — możesz się teraz zalogować",
     "errors": {
       "email": "Nieprawidłowy adres email",
       "emailRequired": "Email jest wymagany",
