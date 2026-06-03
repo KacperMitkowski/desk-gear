@@ -85,16 +85,21 @@ describe("registerAction", () => {
     }
   })
 
-  it("poprawne dane → user utworzony, BEZ auto-loginu, redirectTo /login", async () => {
+  it("poprawne dane → user utworzony, auto-login signIn(redirect:false) + redirectTo /account", async () => {
     mockCreate.mockResolvedValue({ id: "u1", email: VALID_INPUT.email } as never)
+    mockSignIn.mockResolvedValue(undefined as never)
 
     const result = await registerAction(VALID_INPUT)
 
     expect(mockCreate).toHaveBeenCalledOnce()
-    expect(mockSignIn).not.toHaveBeenCalled()
+    expect(mockSignIn).toHaveBeenCalledWith("credentials", {
+      email: VALID_INPUT.email,
+      password: VALID_INPUT.password,
+      redirect: false,
+    })
     expect(result.status).toBe("success")
     if (result.status === "success") {
-      expect(result.data.redirectTo).toBe("/login")
+      expect(result.data.redirectTo).toBe("/account")
     }
   })
 

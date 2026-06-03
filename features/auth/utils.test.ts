@@ -80,4 +80,44 @@ describe("isSafeRedirectPath", () => {
       throw new Error("powinno przejść")
     }
   })
+
+  // Anti-bypass — CodeRabbit feedback. Wszystkie te warianty muszą zwracać false,
+  // bo po dekodowaniu przeglądarka/router potraktuje je jak protocol-relative URL
+  // (`/%2Fevil.com` → `//evil.com`) lub backslash bypass (`/%5Cevil.com` → `/\…`).
+  it("odrzuca percent-encoded slash (`/%2Fevil.com` → `//evil.com`)", () => {
+    expect(isSafeRedirectPath("/%2Fevil.com")).toBe(false)
+    expect(isSafeRedirectPath("/%2fevil.com")).toBe(false) // lowercase też
+  })
+
+  it("odrzuca percent-encoded backslash (`/%5Cevil.com` → `/\\evil.com`)", () => {
+    expect(isSafeRedirectPath("/%5Cevil.com")).toBe(false)
+    expect(isSafeRedirectPath("/%5cevil.com")).toBe(false)
+  })
+
+  it("odrzuca double-encoded slash (`/%252Fevil.com` → `/%2Fevil.com` → `//evil.com`)", () => {
+    expect(isSafeRedirectPath("/%252Fevil.com")).toBe(false)
+  })
+
+  it("odrzuca znaki kontrolne (HTTP response splitting / CRLF injection)", () => {
+    expect(isSafeRedirectPath("/foo\nLocation: evil.com")).toBe(false)
+    expect(isSafeRedirectPath("/foo\rLocation: evil.com")).toBe(false)
+    expect(isSafeRedirectPath("/%0ALocation: evil.com")).toBe(false) // %0A = \n
+    expect(isSafeRedirectPath("/%0DSet-Cookie: x=y")).toBe(false) // %0D = \r
+    expect(isSafeRedirectPath("/\x00path")).toBe(false) // null byte
+  })
+
+  it("odrzuca literalny backslash bypass (`/\\evil.com` — niektóre przeglądarki normalizują na //)", () => {
+    expect(isSafeRedirectPath("/\\evil.com")).toBe(false)
+  })
+
+  it("odrzuca malformowane percent-encoding (`%ZZ`)", () => {
+    expect(isSafeRedirectPath("/%ZZ")).toBe(false)
+    expect(isSafeRedirectPath("/%")).toBe(false)
+  })
+
+  it("akceptuje legit percent-encoded query/fragment (`/path?q=hello%20world`)", () => {
+    // Spacja percent-encoded jest normalna, decoded forma `/path?q=hello world` dalej zaczyna od `/`.
+    expect(isSafeRedirectPath("/path?q=hello%20world")).toBe(true)
+    expect(isSafeRedirectPath("/path#section")).toBe(true)
+  })
 })
