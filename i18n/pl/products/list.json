@@ -1,0 +1,33 @@
+{
+  "list": {
+    "title": "Produkty",
+    "results": "Znaleziono produktów: {total}",
+    "empty": "Brak produktów spełniających wybrane kryteria.",
+    "bestseller": "Bestseller",
+    "priceFrom": "od {price}",
+    "imagePlaceholder": "Brak zdjęcia",
+    "retry": "Spróbuj ponownie",
+    "filters": {
+      "heading": "Filtry",
+      "category": "Kategoria",
+      "allCategories": "Wszystkie kategorie",
+      "brand": "Marka",
+      "allBrands": "Wszystkie marki",
+      "priceMin": "Cena od",
+      "priceMax": "Cena do",
+      "inStock": "Tylko dostępne",
+      "sort": "Sortowanie",
+      "reset": "Wyczyść filtry"
+    },
+    "sort": {
+      "newest": "Najnowsze",
+      "priceAsc": "Cena: rosnąco",
+      "priceDesc": "Cena: malejąco"
+    },
+    "pagination": {
+      "prev": "Poprzednia",
+      "next": "Następna",
+      "status": "Strona {page} z {pageCount}"
+    }
+  }
+}

@@ -3,5 +3,8 @@
   "shop": "Sklep",
   "cart": "Koszyk",
   "account": "Konto",
-  "login": "Zaloguj się"
+  "login": "Zaloguj się",
+  "profile": "Profil",
+  "orders": "Zamówienia",
+  "menuLabel": "Menu użytkownika"
 }

@@ -1,13 +1,18 @@
 import { ShoppingCart } from "lucide-react"
 import Link from "next/link"
 
+import { HeaderAuth } from "@/components/layout/header-auth"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { t } from "@/i18n/translate"
+import { auth } from "@/lib/auth/auth"
 
 // Wspólny nagłówek sklepu. Linki nawigacji to na razie placeholdery (kategorie/koszyk
-// dochodzą w kolejnych taskach).
-export function SiteHeader() {
+// dochodzą w kolejnych taskach). Server component — czyta sesję, żeby pokazać "Zaloguj się"
+// niezalogowanym, a "Konto" zalogowanym.
+export async function SiteHeader() {
+  const session = await auth()
+
   const nav = [
     { label: t("layout.nav.keyboards"), href: "#" },
     { label: t("layout.nav.audio"), href: "#" },
@@ -43,6 +48,7 @@ export function SiteHeader() {
               <ShoppingCart />
             </Link>
           </Button>
+          <HeaderAuth email={session?.user?.email ?? null} />
         </div>
       </div>
     </header>

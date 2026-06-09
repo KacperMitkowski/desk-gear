@@ -11,7 +11,7 @@ import {
 import { registerUser } from "@/features/auth/services/register.service"
 import type { ActionResult } from "@/lib/actions/action-result"
 import { toActionResult } from "@/lib/actions/to-action-result"
-import { signIn } from "@/lib/auth/auth"
+import { signIn, signOut } from "@/lib/auth/auth"
 import { AppError } from "@/lib/errors/app-error"
 import { ROUTES } from "@/lib/routes"
 import { isPrismaErrorCode, isSafeRedirectPath } from "./utils"
@@ -56,4 +56,10 @@ export async function registerAction(
     }
     return { redirectTo: ROUTES.LOGIN }
   })
+}
+
+// Wylogowanie wołane z menu użytkownika w nagłówku (form action). signOut z redirectTo rzuca
+// NEXT_REDIRECT obsługiwany przez Next — bez ActionResult, bo to czysta nawigacja.
+export async function logoutAction() {
+  await signOut({ redirectTo: ROUTES.LOGIN })
 }
