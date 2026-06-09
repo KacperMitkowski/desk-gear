@@ -4,7 +4,7 @@ Lokalne JPG-i seedowanego katalogu sklepu, używane przez `prisma/seed.ts` przy 
 
 ## Konwencja nazewnictwa
 
-```
+```text
 {categorySlug}-{n}.jpg        # zdjęcie główne produktu n
 {categorySlug}-{n}-{m}.jpg    # m-te zdjęcie dodatkowe produktu n
 ```
@@ -15,7 +15,7 @@ Gdzie:
 - `m` — numer zdjęcia dodatkowego (1, 2, ...).
 
 Przykłady:
-```
+```text
 microphones-2.jpg       # główne zdjęcie produktu „microphone-2" (slug w DB)
 microphones-2-1.jpg     # 1. dodatkowe (np. widok z boku)
 microphones-2-2.jpg     # 2. dodatkowe (np. tył)

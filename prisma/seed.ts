@@ -95,7 +95,10 @@ async function main() {
     // Skanujemy folder żeby liczba produktów per kategoria była zgodna z liczbą obrazków
     // (bez duplikatów, bez braków). Zamiast zgadywać 6 albo 7 — bierzemy ile jest.
     const productsDir = join(process.cwd(), "public", "products")
-    const allImages = readdirSync(productsDir)
+    // Sort — `readdirSync` zwraca pliki w kolejności FS (zależnej od systemu/inode).
+    // Bez sortu `faker.seed(42)` nie wystarcza do determinizmu: inna kolejność plików
+    // przetasowuje globalną sekwencję Fakera (nazwy, ceny, liczby wariantów).
+    const allImages = readdirSync(productsDir).sort((a, b) => a.localeCompare(b))
 
     // Grupowanie: `{categorySlug}-{n}.jpg` → categoryProducts[categorySlug] = [n, n, ...]
     // UWAGA: regex `^([\w-]+?)-(\d+)\.jpg$` greedy-by-backtrack matchuje też variant files
@@ -248,6 +251,22 @@ async function main() {
       Object.entries(CATEGORY_TYPE_TO_SLUG).map(([type, slug]) => [slug, type]),
     ) as Record<string, keyof typeof CATEGORY_TYPE_TO_SLUG>
 
+    // Prefiks SKU per kategoria — jawna mapa, bo `slug.slice(0,3)` skleja `mice` i
+    // `microphones` do `MIC` (kolizja SKU → upsert nadpisuje wariant innej kategorii).
+    // Każdy prefiks musi być globalnie unikalny.
+    const SKU_PREFIX: Record<string, string> = {
+      keyboards: "KEY",
+      mice: "MOU",
+      headphones: "HPH",
+      microphones: "MIC",
+      monitors: "MON",
+      drives: "DRV",
+      cables: "CAB",
+      chairs: "CHA",
+      "desk-accessories": "DSK",
+      "t-shirts": "TSH",
+    }
+
     // Generator atrybutów per categoryType. Wartości muszą trafiać w enumy z `schemas.ts` —
     // potem i tak parsujemy przez `variantAttributesSchema.parse()` żeby seed pęknął jeśli
     // ktoś zmieni schemat a generator zostanie nieaktualny.
@@ -346,7 +365,7 @@ async function main() {
         continue
       }
       const variantCountPerProduct = faker.number.int({ min: 2, max: 6 })
-      const skuPrefix = p.categorySlug.toUpperCase().slice(0, 3)
+      const skuPrefix = SKU_PREFIX[p.categorySlug] ?? p.categorySlug.toUpperCase().slice(0, 3)
 
       for (let vi = 1; vi <= variantCountPerProduct; vi++) {
         const rawAttrs = generateAttributes(categoryType)
