@@ -3,6 +3,10 @@
     "title": "Produkty",
     "results": "Znaleziono produktów: {total}",
     "empty": "Brak produktów spełniających wybrane kryteria.",
+    "emptyState": {
+      "title": "Brak produktów",
+      "description": "Nie znaleźliśmy produktów spełniających wybrane filtry. Spróbuj poszerzyć kryteria lub wyczyść filtry."
+    },
     "bestseller": "Bestseller",
     "priceFrom": "od {price}",
     "imagePlaceholder": "Brak zdjęcia",
@@ -13,8 +17,15 @@
       "allCategories": "Wszystkie kategorie",
       "brand": "Marka",
       "allBrands": "Wszystkie marki",
-      "priceMin": "Cena od",
-      "priceMax": "Cena do",
+      "price": "Cena",
+      "priceRanges": {
+        "all": "Wszystkie ceny",
+        "to250": "Do 250 zł",
+        "from250to500": "250 – 500 zł",
+        "from500to1500": "500 – 1500 zł",
+        "from1500to3000": "1500 – 3000 zł",
+        "from3000": "3000 zł i więcej"
+      },
       "inStock": "Tylko dostępne",
       "sort": "Sortowanie",
       "reset": "Wyczyść filtry"
@@ -23,11 +34,6 @@
       "newest": "Najnowsze",
       "priceAsc": "Cena: rosnąco",
       "priceDesc": "Cena: malejąco"
-    },
-    "pagination": {
-      "prev": "Poprzednia",
-      "next": "Następna",
-      "status": "Strona {page} z {pageCount}"
     }
   }
 }

@@ -6,5 +6,5 @@
 export { auth as proxy } from "@/lib/auth/auth.edge"
 
 export const config = {
-  matcher: ["/admin/:path*", "/account/:path*"],
+  matcher: ["/admin/:path*"],
 }

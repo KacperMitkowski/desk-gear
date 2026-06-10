@@ -29,14 +29,14 @@ export async function loginAction(
       if (err instanceof AuthError) throw new AppError("INVALID_CREDENTIALS")
       throw err
     }
-    return { redirectTo: isSafeRedirectPath(callbackUrl) ? callbackUrl : ROUTES.ACCOUNT }
+    return { redirectTo: isSafeRedirectPath(callbackUrl) ? callbackUrl : ROUTES.HOME }
   })
 }
 
 // Rejestracja przez Credentials. NIE robimy auto-loginu — po `registerUser` redirect na
 // `/login`, user samodzielnie wpisuje hasło. To świadoma zmiana względem pierwotnego AC
 // issue #24 (rationale w ARCHITECTURE.md §E6.2). Jeśli AC ma kiedyś wrócić, dopisz `signIn`
-// poniżej i podmień redirect na `ROUTES.ACCOUNT`.
+// poniżej i podmień redirect na `ROUTES.HOME`.
 //
 // Mapowanie błędów: P2002 → AppError("EMAIL_ALREADY_EXISTS") przez ducktyping. Inne błędy
 // Prismy (P1001 brak DB, itd.) lecą przez catch-all `toActionResult` → `server` + traceId.

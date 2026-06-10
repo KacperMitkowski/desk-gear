@@ -8,7 +8,7 @@ export const authConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user
       const path = request.nextUrl.pathname
-      if (path.startsWith("/admin") || path.startsWith("/account")) return isLoggedIn
+      if (path.startsWith("/admin")) return isLoggedIn
       return true
     },
   },

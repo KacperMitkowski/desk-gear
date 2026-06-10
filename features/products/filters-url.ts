@@ -1,3 +1,5 @@
+import { ROUTES } from "@/lib/routes"
+
 import type { ProductSort } from "./schemas"
 
 // Wartości filtrów w formie "płaskiej" — wspólny kontrakt dla budowania URL-a. Używane przez
@@ -13,8 +15,8 @@ export type ProductFilterValues = {
   page?: number
 }
 
-// Buduje ścieżkę z query stringiem dla PLP (`/`). Pomija wartości puste/domyślne, żeby URL był
-// czysty (`/?category=keyboards` zamiast `/?category=keyboards&sort=newest&page=1`).
+// Buduje ścieżkę z query stringiem dla PLP (`/products`). Pomija wartości puste/domyślne, żeby URL
+// był czysty (`/products?category=keyboards` zamiast `...&sort=newest&page=1`).
 export function buildProductsQuery(values: ProductFilterValues): string {
   const params = new URLSearchParams()
   if (values.category) params.set("category", values.category)
@@ -30,5 +32,5 @@ export function buildProductsQuery(values: ProductFilterValues): string {
   if (values.page && values.page > 1) params.set("page", String(values.page))
 
   const qs = params.toString()
-  return qs ? `/?${qs}` : "/"
+  return qs ? `${ROUTES.PRODUCTS}?${qs}` : ROUTES.PRODUCTS
 }

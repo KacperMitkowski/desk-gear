@@ -4,6 +4,8 @@ import errors from "./pl/common/errors.json"
 import forms from "./pl/common/forms.json"
 import layout from "./pl/common/layout.json"
 import nav from "./pl/common/nav.json"
+import pages from "./pl/common/pages.json"
+import pagination from "./pl/common/pagination.json"
 import productsList from "./pl/products/list.json"
 
 // Namespace `auth` zbiera klucze logowania i rejestracji (rozłączne podobiekty: login.*, register.*).
@@ -13,6 +15,6 @@ const auth = { ...authLogin, ...authRegister }
 const products = { ...productsList }
 
 // Namespace = nazwa pliku. Kolejne featurey dokładać tu jako importy (np. i18n/pl/products/...).
-export const messages = { errors, forms, nav, layout, auth, products } as const
+export const messages = { errors, forms, nav, layout, pages, pagination, auth, products } as const
 
 export type Messages = typeof messages

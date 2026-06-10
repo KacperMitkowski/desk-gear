@@ -5,10 +5,11 @@ import { useEffect, useRef } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 
 import { FormCheckbox } from "@/components/form/form-checkbox"
-import { FormNumberInput } from "@/components/form/form-number-input"
+import { FormRadioGroup, type RadioOption } from "@/components/form/form-radio-group"
 import { FormSelect, type SelectOption } from "@/components/form/form-select"
 import { Button } from "@/components/ui/button"
 import { t } from "@/i18n/translate"
+import { ROUTES } from "@/lib/routes"
 
 import { buildProductsQuery } from "../filters-url"
 import type { ProductSort } from "../schemas"
@@ -17,12 +18,30 @@ import type { ProductSort } from "../schemas"
 // więc używamy `ALL` i mapujemy na `undefined` przy budowaniu URL-a.
 const ALL = "all"
 
+// Gotowe przedziały cenowe (zamiast surowych pól od/do). `value` = klucz radia oraz sufiks i18n
+// (`filters.priceRanges.<value>`). `min`/`max` opcjonalne → krańce otwarte: "Do 250" ma tylko max,
+// "3000 i więcej" tylko min. URL trzyma nadal priceMin/priceMax, więc repo/schema bez zmian.
+const PRICE_RANGES: { value: string; min?: number; max?: number }[] = [
+  { value: "to250", max: 250 },
+  { value: "from250to500", min: 250, max: 500 },
+  { value: "from500to1500", min: 500, max: 1500 },
+  { value: "from1500to3000", min: 1500, max: 3000 },
+  { value: "from3000", min: 3000 },
+]
+
+// Mapuje wartości z URL (priceMin/priceMax) na klucz wybranego przedziału. Brak dopasowania
+// (np. ręcznie sklejony URL z nietypowym zakresem) → `ALL`, czyli "wszystkie ceny".
+function matchPriceRange(min?: number, max?: number): string {
+  return PRICE_RANGES.find((r) => r.min === min && r.max === max)?.value ?? ALL
+}
+
 type FilterFormValues = {
   category: string
   brand: string
-  priceMin?: number
-  priceMax?: number
+  priceRange: string
   inStock: boolean
+  // Sortowanie ma własny control nad listą (ProductsSort), nie jest renderowane w sidebarze. Trzymamy
+  // je jednak w stanie formularza, żeby zmiana innego filtra (toQuery) nie gubiła aktywnego `?sort=`.
   sort: ProductSort
 }
 
@@ -42,11 +61,12 @@ export type FilterSidebarProps = {
 // Mapuje stan formularza na wartości URL-a (zdejmuje sentinel `ALL`) i zawsze resetuje stronę do 1
 // — zmiana filtra unieważnia bieżącą paginację.
 function toQuery(values: FilterFormValues): string {
+  const range = PRICE_RANGES.find((r) => r.value === values.priceRange)
   return buildProductsQuery({
     category: values.category !== ALL ? values.category : undefined,
     brand: values.brand !== ALL ? values.brand : undefined,
-    priceMin: values.priceMin,
-    priceMax: values.priceMax,
+    priceMin: range?.min,
+    priceMax: range?.max,
     inStock: values.inStock,
     sort: values.sort,
     page: 1,
@@ -59,8 +79,7 @@ export function FilterSidebar({ categories, brands, current }: FilterSidebarProp
     defaultValues: {
       category: current.category ?? ALL,
       brand: current.brand ?? ALL,
-      priceMin: current.priceMin,
-      priceMax: current.priceMax,
+      priceRange: matchPriceRange(current.priceMin, current.priceMax),
       inStock: current.inStock,
       sort: current.sort,
     },
@@ -85,16 +104,47 @@ export function FilterSidebar({ categories, brands, current }: FilterSidebarProp
     }
   }, [form, router])
 
+  // Synchronizacja URL → formularz. Komponent NIE remountuje się przy soft-nav, więc `defaultValues`
+  // (ustawiane raz, na mount) nie odzwierciedlają zmiany filtra przychodzącej z zewnątrz — np. klik
+  // kategorii na górnej belce. Bez tego select kategorii pozostawałby na starej wartości. Resetujemy
+  // tylko gdy wartości z URL faktycznie różnią się od stanu formularza — inaczej (zmiana wywołana
+  // samym sidebarem: form → URL → te same `current`) byłby zbędny reset, a w trakcie szybkiej edycji
+  // mógłby skasować pole, które user właśnie zmienił, zanim nawigacja się dopięła.
+  useEffect(() => {
+    const v = form.getValues()
+    const next: FilterFormValues = {
+      category: current.category ?? ALL,
+      brand: current.brand ?? ALL,
+      priceRange: matchPriceRange(current.priceMin, current.priceMax),
+      inStock: current.inStock,
+      sort: current.sort,
+    }
+    const differs =
+      v.category !== next.category ||
+      v.brand !== next.brand ||
+      v.priceRange !== next.priceRange ||
+      v.inStock !== next.inStock ||
+      v.sort !== next.sort
+    if (differs) form.reset(next)
+  }, [
+    form,
+    current.category,
+    current.brand,
+    current.priceMin,
+    current.priceMax,
+    current.inStock,
+    current.sort,
+  ])
+
   function handleReset() {
     form.reset({
       category: ALL,
       brand: ALL,
-      priceMin: undefined,
-      priceMax: undefined,
+      priceRange: ALL,
       inStock: false,
       sort: "newest",
     })
-    router.replace("/", { scroll: false })
+    router.replace(ROUTES.PRODUCTS, { scroll: false })
   }
 
   const categoryOptions: SelectOption[] = [
@@ -105,14 +155,16 @@ export function FilterSidebar({ categories, brands, current }: FilterSidebarProp
     { value: ALL, label: t("products.list.filters.allBrands") },
     ...brands.map((b) => ({ value: b, label: b })),
   ]
-  const sortOptions: SelectOption[] = [
-    { value: "newest", label: t("products.list.sort.newest") },
-    { value: "price-asc", label: t("products.list.sort.priceAsc") },
-    { value: "price-desc", label: t("products.list.sort.priceDesc") },
+  const priceOptions: RadioOption[] = [
+    { value: ALL, label: t("products.list.filters.priceRanges.all") },
+    ...PRICE_RANGES.map((r) => ({
+      value: r.value,
+      label: t(`products.list.filters.priceRanges.${r.value}`),
+    })),
   ]
 
   return (
-    <aside className="flex flex-col gap-5">
+    <aside className="flex flex-col gap-5 md:w-60 md:shrink-0">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         {t("products.list.filters.heading")}
       </h2>
@@ -131,30 +183,16 @@ export function FilterSidebar({ categories, brands, current }: FilterSidebarProp
             options={brandOptions}
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <FormNumberInput<FilterFormValues>
-              name="priceMin"
-              label={t("products.list.filters.priceMin")}
-              min={0}
-              placeholder="0"
-            />
-            <FormNumberInput<FilterFormValues>
-              name="priceMax"
-              label={t("products.list.filters.priceMax")}
-              min={0}
-              placeholder="∞"
-            />
-          </div>
+          <FormRadioGroup<FilterFormValues>
+            name="priceRange"
+            label={t("products.list.filters.price")}
+            options={priceOptions}
+            className="gap-3"
+          />
 
           <FormCheckbox<FilterFormValues>
             name="inStock"
             label={t("products.list.filters.inStock")}
-          />
-
-          <FormSelect<FilterFormValues>
-            name="sort"
-            label={t("products.list.filters.sort")}
-            options={sortOptions}
           />
 
           <Button type="button" variant="outline" onClick={handleReset}>

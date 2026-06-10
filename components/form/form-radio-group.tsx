@@ -68,7 +68,7 @@ export function FormRadioGroup<T extends FieldValues>({
         {options.map((option) => {
           const optionId = `${name}-${option.value}`
           return (
-            <div key={option.value} className="flex items-start gap-2">
+            <div key={option.value} className="flex items-start gap-3">
               <RadioGroupItem id={optionId} value={option.value} disabled={option.disabled} />
               <div className="grid gap-0.5 leading-none">
                 <Label htmlFor={optionId} className="font-normal">

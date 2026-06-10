@@ -1,26 +1,24 @@
 "use client"
 
+import { ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { UserMenu } from "@/components/layout/user-menu"
 import { Button } from "@/components/ui/button"
 import { t } from "@/i18n/translate"
 import { ROUTES } from "@/lib/routes"
 
-export function HeaderAuth({ email }: { email: string | null }) {
+export function HeaderCart() {
   const pathname = usePathname()
-
-  if (email) {
-    return <UserMenu email={email} />
-  }
 
   const onAuthPage = pathname === ROUTES.LOGIN || pathname === ROUTES.REGISTER
   if (onAuthPage) return null
 
   return (
-    <Button asChild size="sm">
-      <Link href={ROUTES.LOGIN}>{t("nav.login")}</Link>
+    <Button asChild variant="ghost" size="icon" aria-label={t("layout.header.cart")}>
+      <Link href="#">
+        <ShoppingCart />
+      </Link>
     </Button>
   )
 }

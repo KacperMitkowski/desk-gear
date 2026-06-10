@@ -1,0 +1,14 @@
+{
+  "home": {
+    "badge": "Strona w budowie",
+    "title": "DESKGEAR",
+    "subtitle": "Strona główna powstaje. W międzyczasie zajrzyj do pełnej oferty produktów.",
+    "cta": "Przeglądaj produkty"
+  },
+  "notFound": {
+    "title": "Nie znaleźliśmy tej strony",
+    "subtitle": "Strona, której szukasz, nie istnieje lub została przeniesiona. Sprawdź adres albo wróć na stronę główną.",
+    "home": "Strona główna",
+    "products": "Przeglądaj produkty"
+  }
+}

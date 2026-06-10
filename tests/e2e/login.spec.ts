@@ -4,15 +4,17 @@ import { expect, test } from "@playwright/test"
 const ADMIN_EMAIL = process.env.ADMIN_SEED_EMAIL ?? "admin@desk-gear.local"
 const ADMIN_PASSWORD = process.env.ADMIN_SEED_PASSWORD ?? "ChangeMe1234!"
 
-test("user logs in and lands on /account", async ({ page }) => {
+test("user logs in and lands on home", async ({ page }) => {
   await page.goto("/login")
 
   await page.getByLabel("Adres email").fill(ADMIN_EMAIL)
   await page.getByLabel("Hasło", { exact: true }).fill(ADMIN_PASSWORD)
   await page.getByRole("button", { name: "Zaloguj się" }).click()
 
-  await expect(page).toHaveURL(/\/account/)
-  await expect(page.getByText(ADMIN_EMAIL)).toBeVisible()
+  // Po zalogowaniu redirect na stronę główną (URL kończy się "/"); w nagłówku pojawia się menu
+  // użytkownika (przycisk z inicjałem emaila) — dowód zalogowanej sesji.
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible()
 })
 
 test("złe dane logowania → komunikat błędu, brak redirectu", async ({ page }) => {

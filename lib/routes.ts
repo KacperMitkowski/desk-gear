@@ -6,9 +6,9 @@
 // Dodawaj kolejne ścieżki w miarę potrzeby, NIE budujemy mapy "na zapas".
 export const ROUTES = {
   HOME: "/",
+  PRODUCTS: "/products",
   LOGIN: "/login",
   REGISTER: "/register",
-  ACCOUNT: "/account",
   ADMIN: "/admin",
   FORGOT_PASSWORD: "/forgot-password",
   TERMS: "/terms",

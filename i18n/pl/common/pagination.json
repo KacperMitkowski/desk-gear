@@ -1,0 +1,6 @@
+{
+  "prev": "Poprzednia",
+  "next": "Następna",
+  "status": "Strona {page} z {pageCount}",
+  "label": "Paginacja"
+}

@@ -1,4 +1,6 @@
-import { PRODUCTS_PAGE_SIZE, type ListProductsFilters } from "../schemas"
+import { PAGINATION_SIZE } from "@/components/shared/pagination"
+
+import { type ListProductsFilters } from "../schemas"
 import * as productRepository from "../repositories/product.repository"
 
 // Wynik listy gotowy do renderu w RSC: pozycje strony + metadane paginacji.
@@ -14,7 +16,7 @@ export type ProductListResult = {
 // — bez Server Action, bo to odczyt.
 export async function listProducts(filters: ListProductsFilters): Promise<ProductListResult> {
   const { items, total } = await productRepository.findMany(filters)
-  const pageCount = Math.max(1, Math.ceil(total / PRODUCTS_PAGE_SIZE))
+  const pageCount = Math.max(1, Math.ceil(total / PAGINATION_SIZE))
   return { items, total, page: filters.page, pageCount }
 }
 

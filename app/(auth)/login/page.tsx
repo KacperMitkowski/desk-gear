@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { LoginForm } from "@/features/auth/components/login-form"
 import { auth } from "@/lib/auth/auth"
+import { ROUTES } from "@/lib/routes"
 import { AuthCardTabs } from "@/features/auth/components/auth-card-tabs"
 
 export default async function LoginPage({
@@ -10,7 +11,7 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string }>
 }) {
   const session = await auth()
-  if (session?.user) redirect("/account")
+  if (session?.user) redirect(ROUTES.HOME)
 
   const { callbackUrl } = await searchParams
 

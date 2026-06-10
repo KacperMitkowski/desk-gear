@@ -6,22 +6,19 @@ import { t } from "@/i18n/translate"
 import type { ProductListItem } from "@/features/products/repositories/product.repository"
 import { formatMoney } from "@/lib/money/format"
 
-// Karta produktu na liście (PLP). Server component — czysta prezentacja, brak interakcji klienta.
-// Cały kafel jest linkiem do PDP (`/products/{slug}`; trasa powstaje w osobnym tasku).
 export function ProductCard({ product }: { product: ProductListItem }) {
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group flex w-72 max-w-full flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-foreground/20"
+      className="group flex w-full flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-foreground/20"
     >
-      {/* Stała wysokość panelu (niezależna od szerokości karty/okna) → jednolita wysokość kart. */}
       <div className="relative h-64 overflow-hidden bg-muted">
         {product.primaryImage ? (
           <Image
             src={product.primaryImage.path}
             alt={product.primaryImage.alt}
             fill
-            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 400px"
+            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 320px"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
@@ -41,8 +38,6 @@ export function ProductCard({ product }: { product: ProductListItem }) {
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
-        {/* Stałe wymiary kart niezależnie od kategorii: rezerwujemy wysokość na markę (1 linia)
-            i nazwę (zawsze 2 linie), nawet gdy marki brak lub nazwa jest krótka. */}
         <p className="line-clamp-1 min-h-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {product.brand ?? ""}
         </p>

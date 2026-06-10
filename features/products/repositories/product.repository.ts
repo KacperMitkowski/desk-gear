@@ -1,8 +1,9 @@
+import { PAGINATION_SIZE } from "@/components/shared/pagination"
 import { prisma } from "@/lib/db/prisma"
 import type { Prisma } from "@/lib/generated/prisma"
 import { toMoney, type Money } from "@/lib/money/types"
 
-import { PRODUCTS_PAGE_SIZE, type ListProductsFilters } from "../schemas"
+import { type ListProductsFilters } from "../schemas"
 
 // DTO pod kartę produktu (PLP). Repozytorium mapuje `Prisma.Decimal` → `Money` (string) tutaj,
 // żeby surowy Decimal nie wyciekał do warstwy UI (RSC/komponenty serializują tylko prymitywy).
@@ -79,7 +80,7 @@ export async function findMany(
   filters: ListProductsFilters,
 ): Promise<{ items: ProductListItem[]; total: number }> {
   const where = buildWhere(filters)
-  const skip = (filters.page - 1) * PRODUCTS_PAGE_SIZE
+  const skip = (filters.page - 1) * PAGINATION_SIZE
 
   // Sortowanie po cenie "od" nie ma prostej kolumny w DB (to min z wariantów), więc dla `price-*`
   // pobieramy wszystkie pasujące produkty, liczymy `priceFrom` i sortujemy/stronicujemy w pamięci.
@@ -93,7 +94,7 @@ export async function findMany(
         include: INCLUDE,
         orderBy: { createdAt: "desc" },
         skip,
-        take: PRODUCTS_PAGE_SIZE,
+        take: PAGINATION_SIZE,
       }),
       prisma.product.count({ where }),
     ])
@@ -107,7 +108,7 @@ export async function findMany(
       ? Number(a.priceFrom) - Number(b.priceFrom)
       : Number(b.priceFrom) - Number(a.priceFrom),
   )
-  return { items: items.slice(skip, skip + PRODUCTS_PAGE_SIZE), total: items.length }
+  return { items: items.slice(skip, skip + PAGINATION_SIZE), total: items.length }
 }
 
 // Opcje do sidebara filtrów: kategorie-liście, które mają aktywne produkty, oraz lista marek.

@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest"
 
+import { PAGINATION_SIZE } from "@/components/shared/pagination"
 import { findMany, getFilterOptions } from "@/features/products/repositories/product.repository"
-import { PRODUCTS_PAGE_SIZE, listProductsSchema } from "@/features/products/schemas"
+import { listProductsSchema } from "@/features/products/schemas"
 import { prisma } from "@/lib/db/prisma"
 
 // Integration test repozytorium — odpala się na realnej bazie z seedem (prisma/seed.ts, faker.seed(42)).
@@ -21,7 +22,7 @@ describe("product.repository.findMany (real DB + seed)", () => {
 
     expect(total).toBe(activeCount)
     expect(items.length).toBeGreaterThan(0)
-    expect(items.length).toBeLessThanOrEqual(PRODUCTS_PAGE_SIZE)
+    expect(items.length).toBeLessThanOrEqual(PAGINATION_SIZE)
     // Decimal zmapowany na string X.YY (Money), nie wycieka Prisma.Decimal.
     for (const item of items) {
       expect(item.priceFrom).toMatch(/^\d+\.\d{2}$/)
@@ -51,13 +52,13 @@ describe("product.repository.findMany (real DB + seed)", () => {
     })
 
     expect(total).toBe(expected)
-    expect(items.length).toBeLessThanOrEqual(PRODUCTS_PAGE_SIZE)
+    expect(items.length).toBeLessThanOrEqual(PAGINATION_SIZE)
   })
 
   it("paginacja: strona 2 rozłączna ze stroną 1, total identyczny", async () => {
     const page1 = await findMany(filters({ page: 1 }))
 
-    if (page1.total <= PRODUCTS_PAGE_SIZE) {
+    if (page1.total <= PAGINATION_SIZE) {
       // Za mało danych na drugą stronę — weryfikujemy tylko spójność strony 1.
       expect(page1.items.length).toBe(page1.total)
       return

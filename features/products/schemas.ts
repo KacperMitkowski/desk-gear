@@ -82,26 +82,14 @@ const apparelAttrs = z.object({
   color: z.string().min(1),
 })
 
-// Liczba produktów na stronę listy (PLP). Trzymamy tu, bo używają tego zarówno repo
-// (skip/take) jak i serwis (liczenie `pageCount`) — single source of truth.
-export const PRODUCTS_PAGE_SIZE = 12
-
-// Dozwolone tryby sortowania listy. `newest` → po dacie utworzenia; `price-asc/desc` → po
-// cenie "od" (min z wariantów). Trzymane jako schema, bo parsujemy nim wartość z URL.
 export const productSortSchema = z.enum(["newest", "price-asc", "price-desc"])
 export type ProductSort = z.infer<typeof productSortSchema>
 
-// Schema filtrów listy produktów — parsuje `searchParams` (po znormalizowaniu `string[]` → string).
-// Wszędzie `.catch(...)` zamiast twardego błędu: śmieci w URL (np. `?page=abc`) nie mają wywalać
-// strony 500, tylko cicho wracać do wartości domyślnej. To read-only ekran wejścia, ma się zawsze
-// wyrenderować.
 export const listProductsSchema = z.object({
   category: z.string().min(1).optional().catch(undefined), // slug liścia, np. "keyboards"
   brand: z.string().min(1).optional().catch(undefined),
   priceMin: z.coerce.number().min(0).optional().catch(undefined),
   priceMax: z.coerce.number().min(0).optional().catch(undefined),
-  // `z.coerce.boolean()` traktuje "false" jako true (każdy niepusty string), więc mapujemy ręcznie.
-  // W URL ustawiamy ten parametr tylko gdy true; przy braku → false.
   inStock: z.preprocess((v) => v === "true" || v === "1" || v === true, z.boolean()),
   page: z.coerce.number().int().min(1).catch(1),
   sort: productSortSchema.catch("newest"),

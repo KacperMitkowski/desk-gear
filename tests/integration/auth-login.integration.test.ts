@@ -57,7 +57,7 @@ describe("loginAction", () => {
 
     const result = await loginAction(
       { email: "admin@desk-gear.local", password: "ChangeMe1234!" },
-      "/account",
+      "/products",
     )
 
     expect(mockSignIn).toHaveBeenCalledWith("credentials", {
@@ -67,11 +67,11 @@ describe("loginAction", () => {
     })
     expect(result.status).toBe("success")
     if (result.status === "success") {
-      expect(result.data.redirectTo).toBe("/account")
+      expect(result.data.redirectTo).toBe("/products")
     }
   })
 
-  it("niebezpieczny callbackUrl (absolute URL) → redirectTo wraca do /account (anti-open-redirect)", async () => {
+  it("niebezpieczny callbackUrl (absolute URL) → redirectTo wraca do / (anti-open-redirect)", async () => {
     mockSignIn.mockResolvedValue(undefined as never)
 
     const result = await loginAction(
@@ -81,11 +81,11 @@ describe("loginAction", () => {
 
     expect(result.status).toBe("success")
     if (result.status === "success") {
-      expect(result.data.redirectTo).toBe("/account")
+      expect(result.data.redirectTo).toBe("/")
     }
   })
 
-  it("protocol-relative callbackUrl (//evil.com) → redirectTo wraca do /account", async () => {
+  it("protocol-relative callbackUrl (//evil.com) → redirectTo wraca do /", async () => {
     mockSignIn.mockResolvedValue(undefined as never)
 
     const result = await loginAction(
@@ -95,7 +95,7 @@ describe("loginAction", () => {
 
     expect(result.status).toBe("success")
     if (result.status === "success") {
-      expect(result.data.redirectTo).toBe("/account")
+      expect(result.data.redirectTo).toBe("/")
     }
   })
 })
